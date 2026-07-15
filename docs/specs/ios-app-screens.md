@@ -3,17 +3,25 @@
 作成日: 2026-07-14
 関連: [MVP 実装プラン](../plans/mvp-morning-briefing.md) / [機能アイデア](app-features.md)
 モックアップ（Artifact）:
-- 4画面（オンボーディング/通知/ブリーフィング/設定）: https://claude.ai/code/artifact/4c8dc1f9-e4f3-4e8c-8360-13a43a894b13
+- **4タブ構成（HOME / GitHub / Calendar / Setting）← 最新**: https://claude.ai/code/artifact/bcf1b560-caf3-451d-af1d-4c249c2bfe2e
 - レイアウト3案の比較: https://claude.ai/code/artifact/b900f92f-3430-4439-b243-e383235600ab
+- 初期4画面（オンボーディング/通知/ブリーフィング/設定）: https://claude.ai/code/artifact/4c8dc1f9-e4f3-4e8c-8360-13a43a894b13
 
-## レイアウト決定（2026-07-14）
+## ナビゲーション構成の決定（2026-07-14 更新）
 
-メイン画面のレイアウトは **案A「統合フィード（優先順1画面）」に決定**（ユーザー選択）。
-1画面を上から緊急順にスクロールする。案B（2タブ）・案C（ダッシュボード）は比較の上で見送り、
-必要になれば合わせ技として後で寄せる。
+**下部ナビ4タブ: HOME / GitHub / Calendar / Setting**（ユーザー決定）。
+HOME に **案A「統合フィード（優先順1画面）」** を据える。案B/Cは見送り。
 
-これに伴い **GitHub の作業把握を MVP のメイン画面に取り込む**（下記「よく使う機能」）。
-元計画では GitHub は Phase 5 だったが前倒しする。
+- **HOME** = 横断ダイジェスト（案A）。締切・今日やる・要対応・昨日のGitHub の要点を優先順に。
+  各セクション見出しは対応タブへのリンク（「GitHub ›」「Calendar ›」）
+- **GitHub** = 昨日の活動（リポジトリ別 commits/PR）＋各 `TODO.md` の次の作業＋放置検知
+- **Calendar** = 週ストリップ＋アジェンダ。Google 予定 + Canvas 締切 + サブスク期限を1本の時系列に統合
+- **Setting** = 通知・連携ソース・`TODO.md` 読み取り対象リポジトリ
+
+役割分担: **要点は HOME、全量は各タブ**（同じデータの見せ方を変えるだけ。二重に作り込まない）。
+毎朝の push は HOME の要約を届け、タップで HOME を開く。タブはプル側。
+
+これに伴い **GitHub の作業把握を MVP に取り込む**（下記「よく使う機能」）。元計画では Phase 5 だが前倒し。
 
 ### よく使う機能（この設計が満たすもの）
 
@@ -22,8 +30,10 @@
 
 ## スコープ
 
-MVP は **4 画面**。初回の通知許可 → 毎朝の受け取り → 表示 → 設定 を通す。
-ウィジェット / Live Activities / 週表示 / チャットは後フェーズ（[spec Phase 3+](app-features.md)）。
+MVP の画面 = **オンボーディング + ロック画面通知 + 4タブ本体（HOME / GitHub / Calendar / Setting）**。
+初回の通知許可 → 毎朝の受け取り → HOME で確認 → 各タブで深掘り、を通す。
+実装は **HOME を先に動かし、GitHub / Calendar タブは順に肉付け**する段取り（[MVP プラン](../plans/mvp-morning-briefing.md)）。
+ウィジェット / Live Activities / チャットは後フェーズ（[spec Phase 3+](app-features.md)）。
 
 ## 画面
 
