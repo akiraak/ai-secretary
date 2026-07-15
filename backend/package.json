@@ -13,11 +13,14 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "db:init": "tsx src/db/init.ts",
+    "google:auth": "tsx src/auth/googleGetToken.ts",
+    "collectors:check": "tsx src/collectors/check.ts",
     "briefing": "tsx src/jobs/runBriefing.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

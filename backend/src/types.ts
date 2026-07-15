@@ -27,6 +27,21 @@ export interface MailItem {
   gmailLink?: string;
 }
 
+/**
+ * Gmail から取得した生の要対応候補（トリアージ前）。
+ * Step 4 の LLM 層がこの配列からトリアージ規則を適用して MailItem を生成する。
+ */
+export interface RawMailCandidate {
+  id: string;
+  threadId: string;
+  from: string;
+  subject: string;
+  snippet: string;
+  date: string; // ISO8601（取得できない場合は空文字）
+  labelIds: string[];
+  gmailLink: string;
+}
+
 /** 昨日の GitHub 活動 */
 export interface GithubItem {
   repo: string;

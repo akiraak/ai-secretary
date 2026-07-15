@@ -99,7 +99,14 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
 ## Phase / Step
 
 - [x] Step 1: バックエンド雛形（TS/Node プロジェクト、`.env.example`、`.gitignore`、SQLite スキーマ）
-- [ ] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（今日の予定・受信の取得）
+- [x] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（今日の予定・受信の取得）
+  - 実装: `googleapis` 導入、`src/auth/google.ts`（OAuth2 クライアント/API ファクトリ）、
+    `src/auth/googleGetToken.ts`（`npm run google:auth` = リフレッシュトークン取得ループバック CLI）、
+    `src/collectors/calendar.ts`・`src/collectors/gmail.ts`、`src/util/time.ts`（シアトル時間の日境界計算）、
+    `src/collectors/check.ts`（`npm run collectors:check` = 実データ取得確認）
+  - **要ユーザー検証**: Google Cloud で「デスクトップアプリ」種別 OAuth クライアント作成 →
+    ID/SECRET を `.env` → `npm run google:auth` でトークン取得 → `npm run collectors:check` で実データ確認
+    （コードは typecheck 済み・未設定時は案内メッセージを出す。ライブ検証はユーザーの認証情報が必要）
 - [ ] Step 3: Canvas iCal コレクタ（.ics パース → 締切抽出）
 - [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
 - [ ] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）

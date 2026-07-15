@@ -28,6 +28,18 @@ export const config = {
     clientId: optional('GOOGLE_CLIENT_ID'),
     clientSecret: optional('GOOGLE_CLIENT_SECRET'),
     refreshToken: optional('GOOGLE_REFRESH_TOKEN'),
+    // 今日の予定を集めるカレンダー ID（カンマ区切り。既定は primary のみ）
+    calendarIds: (optional('GOOGLE_CALENDAR_IDS') ?? 'primary')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    // google:auth スクリプトのローカルループバックポート
+    oauthPort: Number.parseInt(withDefault('GOOGLE_OAUTH_PORT', '5858'), 10),
+  },
+  gmail: {
+    // 受信トレイをさかのぼる日数（要対応候補の収集範囲）
+    lookbackDays: Number.parseInt(withDefault('GMAIL_LOOKBACK_DAYS', '2'), 10),
+    maxResults: Number.parseInt(withDefault('GMAIL_MAX_RESULTS', '30'), 10),
   },
   canvas: {
     icalUrl: optional('CANVAS_ICAL_URL'),
