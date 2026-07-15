@@ -1,0 +1,126 @@
+# MVP: 朝ブリーフィングを iOS アプリに push（実装プラン）
+
+作成日: 2026-07-14
+親タスク: [アプリの機能を決める](decide-app-features.md) / [spec](../specs/app-features.md)
+
+## 目的・背景
+
+パーソナル秘書アプリの MVP。毎朝 1 通、その日の予定・要対応メール・Canvas 締切をまとめて
+**自前 APNs 経由でネイティブ iOS アプリに push** する。通知チャネルをネイティブ iOS アプリに
+する方針はユーザー決定済み（[検証 2-2-1](../specs/app-features.md)）。
+
+確定した前提（2026-07 時点）:
+
+- Apple Developer Program 加入済み
+- push ペイロード方式: **v1 はフル内容を payload に載せる** → 後で「シグナルのみ + 本文取得」へ移行（Phase 4）
+- Canvas は **iCal フィード**（Access Token は Shoreline が無効化済み）。URL は `.env` 作成時に貼り付け
+- ブリーフィング: **日本語**、配信時刻は **シアトル時間（America/Los_Angeles）**。既定 07:00 PT（Autopilot 07:00–07:30 に合わせる。`.env` で変更可）
+
+## 重要な設計上の注意（先に潰す論点）
+
+**claude.ai の MCP コネクタ（Gmail / Calendar）は、この Claude Code セッション内でしか使えない。**
+g3plus 上で常時稼働するバックエンドは、自前で Google API にアクセスする必要がある。
+
+→ **Google Cloud プロジェクトを作り、Calendar API + Gmail API を有効化し、OAuth で
+リフレッシュトークンを一度取得して `.env` に保存する**（単一ユーザー・オフラインアクセス）。
+サービスアカウントは個人 Gmail に（ドメイン委任なしでは）アクセスできないため使わない。
+
+## 対応方針・アーキテクチャ
+
+```
+[g3plus / cron 07:00 PT]
+   └─ backend (TypeScript / Node)
+        ├─ Collector: Google Calendar API（今日の予定・締切）
+        ├─ Collector: Gmail API（要対応メールのトリアージ元）
+        ├─ Collector: Canvas iCal フィード（.ics パース → 締切）
+        ├─ Collector: GitHub（gh CLI / API: 昨日の commits・PR）★
+        ├─ Collector: 各リポジトリの TODO.md 読み取り（今日やる/次の作業）★
+        ├─ LLM 層: Claude API（claude-haiku-4-5）で要約・トリアージ・日本語整形
+        ├─ Store: SQLite（生成したブリーフィングを保存 = アプリのプル元）
+        └─ Sender: APNs（HTTP/2 + JWT / .p8）で iOS へ push
+[iOS アプリ (Swift/SwiftUI)]  ← メイン画面は「案A 統合フィード」
+   ├─ 起動時にリモート通知登録 → デバイストークンを backend に POST
+   ├─ push 受信 → 通知表示
+   └─ アプリ開いたら GET /briefings/latest でブリーフィング表示
+       （締切 → 今日やる → 要対応 → 昨日のGitHub の優先順1画面。[画面設計](../specs/ios-app-screens.md)）
+```
+
+★ GitHub / TODO.md コレクタは元計画では Phase 5 だったが、[画面レイアウト決定](../specs/ios-app-screens.md)により
+MVP のメイン画面に取り込むため前倒し。`TODO.md` の読み取り先リポジトリは設定で持つ（当面はアクティブな数本）。
+
+技術スタック（ユーザーの既存資産に合わせる）:
+
+- backend: **TypeScript / Node**（g3plus は n8n=Node が稼働。他プロジェクトも TS 中心）
+- 定期実行: g3plus の **cron**（将来 n8n スケジュールへ寄せてもよい）
+- データ: **SQLite**
+- LLM: **Claude API `claude-haiku-4-5`**（$1/$5 per MTok。品質不足なら `claude-sonnet-5` に切替）
+- APNs 送信: Node の HTTP/2 + JWT（`.p8` 認証キー）。ライブラリは実装時に選定（apns2 等）
+- iOS: **Swift / SwiftUI**、TestFlight 配布（個人用）
+
+### backend API エンドポイント（MVP）
+
+単一ユーザーなので認証は共有シークレット（Bearer）で簡易に。
+
+- `POST /devices` — デバイストークン登録（body: token, platform）
+- `GET /briefings/latest` — 最新ブリーフィング JSON を返す（アプリのプル元）
+- （内部）cron 起動のジョブが 収集 → 生成 → 保存 → push を実行
+
+### `.env` に必要な設定（実装時に `.env.example` を作る）
+
+```
+ANTHROPIC_API_KEY=
+LLM_MODEL=claude-haiku-4-5
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
+CANVAS_ICAL_URL=            # ユーザーが貼り付け
+APNS_KEY_ID=
+APNS_TEAM_ID=
+APNS_BUNDLE_ID=
+APNS_P8_PATH=              # or inline key
+APNS_ENV=sandbox           # sandbox | production
+BRIEFING_HOUR=7            # America/Los_Angeles
+TZ=America/Los_Angeles
+BRIEFING_LANG=ja
+API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
+```
+
+`.env` と `.p8`・iCal URL・リフレッシュトークンは秘密。Git にコミットしない（`.gitignore` に追加）。
+
+## トリアージ基準（LLM プロンプトに入れる初期ルール）
+
+[spec 1-2](../specs/app-features.md) の実データ分析に基づく:
+
+- 要対応: サブスク期限 / 銀行・支払い / 学校事務(navigate@shoreline.edu) / セキュリティ警告
+- 参考（1 行）: Canvas 採点結果 / Amazon 配送
+- 無視: プロモ・ニュースレター
+- 除外: 自分宛て自動送信（Autopilot ニュース、[Autopilot] レポート、セルフメモ）
+
+## Phase / Step
+
+- [ ] Step 1: バックエンド雛形（TS/Node プロジェクト、`.env.example`、`.gitignore`、SQLite スキーマ）
+- [ ] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（今日の予定・受信の取得）
+- [ ] Step 3: Canvas iCal コレクタ（.ics パース → 締切抽出）
+- [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
+- [ ] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）
+- [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
+- [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
+- [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）
+- [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
+
+## 影響範囲
+
+新規コード（backend + iOS アプリ）。既存コードなし。g3plus に cron エントリと常駐サービスを追加。
+
+## テスト方針
+
+- 各コレクタは単体で「実データが取れる」ことを確認（Calendar/Gmail/Canvas）
+- LLM 出力は手動レビュー（トリアージが spec のルール通りか）
+- APNs は sandbox 環境で実機に届くことを確認
+- エンドツーエンド: cron を手動起動 → iOS 実機に日本語ブリーフィングが届く
+
+## 未確定・実装中に詰める点
+
+- Node の APNs ライブラリ選定
+- Gmail の「要対応」抽出クエリの具体化（ラベル・エイリアス活用）
+- ブリーフィングの文面フォーマット（項目順・長さ）
