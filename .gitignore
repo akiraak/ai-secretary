@@ -1,2 +1,12 @@
 vibeboard/dist/
 vibeboard/node_modules/
+
+# ===== backend =====
+backend/node_modules/
+backend/dist/
+backend/data/
+
+# secrets — 絶対にコミットしない
+.env
+.env.local
+*.p8

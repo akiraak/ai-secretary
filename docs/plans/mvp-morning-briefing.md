@@ -98,7 +98,7 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
 
 ## Phase / Step
 
-- [ ] Step 1: バックエンド雛形（TS/Node プロジェクト、`.env.example`、`.gitignore`、SQLite スキーマ）
+- [x] Step 1: バックエンド雛形（TS/Node プロジェクト、`.env.example`、`.gitignore`、SQLite スキーマ）
 - [ ] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（今日の予定・受信の取得）
 - [ ] Step 3: Canvas iCal コレクタ（.ics パース → 締切抽出）
 - [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
