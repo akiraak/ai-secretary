@@ -1,17 +1,7 @@
 # TODO
 
 - [ ] MVP: 朝ブリーフィングを iOS アプリに push [plan](docs/plans/mvp-morning-briefing.md)
-  - [x] Step 1: バックエンド雛形（TS/Node、.env.example、.gitignore、SQLite スキーマ）
-  - [x] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（backend 用の自前 API アクセス。要ユーザー検証）
-  - [x] Step 3: Canvas iCal コレクタ（.ics パース → 締切。ライブ検証は iCal URL 投入後）
-  - [x] Step 3.5: GitHub コレクタ（昨日の commits/PR）+ 各リポジトリ TODO.md 読み取り（GitHub API ライブ検証はトークン投入後）
-  - [x] Step 4: LLM 層（Claude Haiku 4.5 で日本語ブリーフィング整形・トリアージ。ライブ検証は API キー投入後）
-  - [x] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存（`npm start` = API サーバ、`npm run briefing` = 収集→生成→保存ジョブ。一時 DB + curl でライブ検証済み）
-  - [x] Step 6: APNs 送信（.p8/JWT/HTTP2 を node 標準モジュールで自前実装。`npm run briefing` 末尾で push、`npm run apns:check` で単体検証。実機到達確認は .p8 投入後）
-  - [x] iOS 画面設計（4画面のモックアップ・spec 作成） [spec](docs/specs/ios-app-screens.md)
-  - [x] Step 7: iOS アプリ雛形（`ios/` に SwiftUI 4タブアプリ。XcodeGen で生成、シミュレータ + ローカル API でライブ検証済み。実機の APNs 登録確認は署名設定後）
-  - [x] Step 8: cron 実行環境（cron ラッパ + crontab 例 + API 常駐 systemd unit + デプロイ手順書。Mac でラッパのライブ検証済み。g3plus 配置と E2E 確認は下のユーザー作業） [手順](docs/specs/deploy-g3plus.md)
-  - [ ] ユーザー作業: `ios/Config/Local.example.xcconfig` を `Local.xcconfig` にコピーして DEVELOPMENT_TEAM を設定 → `cd ios && xcodegen generate` → Xcode で実機にインストール → 通知許可 → Setting タブでデバイス登録を確認
+  - [ ] ユーザー作業: 実機で通知許可 → Setting タブでデバイス登録を確認（要 API サーバ起動。実機インストール・起動確認は完了済み）
   - [ ] ユーザー作業: Google Cloud で「デスクトップアプリ」OAuth クライアント作成 → ID/SECRET を `.env` → `npm run google:auth` でリフレッシュトークン取得 → `npm run collectors:check` で実データ確認
   - [ ] ユーザー作業: `.env` に Canvas iCal URL / APNs 設定（APNS_KEY_ID / TEAM_ID / BUNDLE_ID / P8_PATH）を投入 → `npm run apns:check -- --token <デバイストークン>` で実機到達確認
   - [ ] ユーザー作業: `.env` に GITHUB_TOKEN（または `gh auth login`）と GITHUB_REPOS を設定 → `npm run collectors:check` で GitHub/TODO セクション確認
