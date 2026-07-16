@@ -58,6 +58,19 @@ export interface EventItem {
   location?: string;
 }
 
+/**
+ * 全コレクタの収集結果（LLM 層への入力）。
+ * deadlines は Canvas + Calendar 終日イベント由来をマージ済み。
+ */
+export interface CollectedInput {
+  date: string; // America/Los_Angeles の YYYY-MM-DD
+  todayEvents: EventItem[];
+  deadlines: DeadlineItem[];
+  todos: TodoItem[];
+  github: GithubItem[];
+  mailCandidates: RawMailCandidate[];
+}
+
 /** briefings.payload_json に格納する構造化ブリーフィング全体 */
 export interface BriefingPayload {
   date: string; // America/Los_Angeles の YYYY-MM-DD

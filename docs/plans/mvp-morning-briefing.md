@@ -126,7 +126,18 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
     ローカル TODO.md 読み取りは本リポジトリで実データ確認済み。
     **GitHub API のライブ検証は `.env` に GITHUB_TOKEN（または `gh auth login`）投入後、
     `npm run collectors:check` で行う**
-- [ ] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）
+- [x] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）
+  - 実装: `@anthropic-ai/sdk` 導入、`src/collectors/all.ts`（全コレクタを並列実行し
+    `CollectedInput` に集約。失敗コレクタは warnings に落として空リストで続行）、
+    `src/llm/briefing.ts`（`generateBriefing`: 構造化出力 `output_config.format` の
+    JSON Schema で {title, summary, mails[]} を固定。トリアージ規則 spec 1-2 を
+    システムプロンプトに埋め込み。メールは LLM に index だけ返させ、from/subject/
+    gmailLink はコード側で候補から復元 = メタデータのハルシネーション防止）、
+    `src/llm/check.ts`（`npm run llm:check` = 実データ、`-- --fixture` = 4 区分を
+    網羅するサンプル入力で認証情報なしでも LLM 層だけ検証可能）
+  - フィクスチャ検証済み（トリアージ復元の不正 index/重複/並べ替え、出力 JSON の
+    パース・スキーマ検証、プロンプト整形の index 付与・日付のみ dueAt の素通し）。
+    **ライブ検証は `.env` に ANTHROPIC_API_KEY 投入後、`npm run llm:check -- --fixture` で行う**
 - [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
 - [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
 - [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）

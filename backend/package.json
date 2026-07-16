@@ -15,9 +15,11 @@
     "db:init": "tsx src/db/init.ts",
     "google:auth": "tsx src/auth/googleGetToken.ts",
     "collectors:check": "tsx src/collectors/check.ts",
+    "llm:check": "tsx src/llm/check.ts",
     "briefing": "tsx src/jobs/runBriefing.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
     "better-sqlite3": "^11.8.1",
     "dotenv": "^16.4.7",
     "googleapis": "^144.0.0"
