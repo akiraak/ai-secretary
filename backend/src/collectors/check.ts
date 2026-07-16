@@ -80,7 +80,9 @@ async function main(): Promise<void> {
   // --- TODO.md ---
   try {
     const todos = await collectTodos();
-    console.log(`[TODO] 未完了タスク ${todos.length} 件（${config.github.repos.length} リポジトリ）`);
+    console.log(
+      `[TODO] 未完了タスク ${todos.length} 件（${new Set(todos.map((t) => t.repo)).size} リポジトリ）`,
+    );
     for (const t of todos) {
       console.log(`  ・${t.repo}: ${t.text}`);
     }

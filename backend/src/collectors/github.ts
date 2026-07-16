@@ -13,6 +13,18 @@ const execFileAsync = promisify(execFile);
 const API_BASE = 'https://api.github.com';
 // Events API は 100 件/頁。昨日 1 日分なら 3 頁（300 イベント）で十分
 const MAX_EVENT_PAGES = 3;
+// /user/repos のページング上限（100 件/頁 × 10 = 1000 リポジトリまで）
+const MAX_REPO_PAGES = 10;
+
+/** GitHub API の HTTP エラー。呼び出し側が 404（TODO.md 無し等）を区別できるよう status を持つ。 */
+export class GhHttpError extends Error {
+  constructor(
+    apiPath: string,
+    readonly status: number,
+  ) {
+    super(`GitHub API ${apiPath} が失敗しました: HTTP ${status}`);
+  }
+}
 
 /** GITHUB_TOKEN → gh CLI の順でアクセストークンを解決する。 */
 export async function resolveToken(): Promise<string> {
@@ -43,7 +55,7 @@ export async function ghApi<T>(apiPath: string, token: string): Promise<T> {
     headers: headers(token, 'application/vnd.github+json'),
   });
   if (!res.ok) {
-    throw new Error(`GitHub API ${apiPath} が失敗しました: HTTP ${res.status}`);
+    throw new GhHttpError(apiPath, res.status);
   }
   return (await res.json()) as T;
 }
@@ -54,9 +66,33 @@ export async function ghApiRaw(apiPath: string, token: string): Promise<string> 
     headers: headers(token, 'application/vnd.github.raw'),
   });
   if (!res.ok) {
-    throw new Error(`GitHub API ${apiPath} が失敗しました: HTTP ${res.status}`);
+    throw new GhHttpError(apiPath, res.status);
   }
   return res.text();
+}
+
+/** /user/repos のレスポンスのうち使う部分だけの型。 */
+interface GhRepo {
+  full_name: string;
+  fork: boolean;
+  archived: boolean;
+}
+
+/**
+ * トークンで見える全リポジトリ（own / collaborator / org）を `owner/repo` で列挙する。
+ * fork（upstream 由来の TODO.md がノイズになる）と archived（停止済み）は除外。
+ * 監視したい fork は GITHUB_REPOS に明示指定すれば読める。
+ */
+export async function listAccessibleRepos(token: string): Promise<string[]> {
+  const names: string[] = [];
+  for (let page = 1; page <= MAX_REPO_PAGES; page++) {
+    const batch = await ghApi<GhRepo[]>(`/user/repos?per_page=100&sort=pushed&page=${page}`, token);
+    for (const r of batch) {
+      if (!r.fork && !r.archived) names.push(r.full_name);
+    }
+    if (batch.length < 100) break;
+  }
+  return names;
 }
 
 /** Events API のレスポンスのうち使う部分だけの型。 */

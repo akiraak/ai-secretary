@@ -13,3 +13,8 @@
 - [x] 2026-07-15 MVP Step 7: iOS アプリ雛形（SwiftUI 4タブ。シミュレータ + ローカル API でライブ検証済み）
 - [x] 2026-07-15 MVP Step 8: cron 実行環境（cron ラッパ + crontab 例 + API 常駐 systemd unit + デプロイ手順書） [手順](docs/specs/deploy-g3plus.md)
 - [x] 2026-07-15 MVP: 実機インストール（`Local.xcconfig` に DEVELOPMENT_TEAM 設定 → 実機ビルド → インストール → 起動確認）
+- [x] 2026-07-15 GITHUB_REPOS 自動発見: `GITHUB_REPOS=*` でトークンが見える全リポジトリ（fork・archived 除く）の TODO.md を監視（並列 8 本取得・404 スキップ・明示エントリ併記の重複除外。ライブ検証: 90+ リポジトリを ~6 秒、11 リポジトリから 55 件取得） [plan](docs/plans/archive/github-repos-auto-discovery.md)
+- [x] 2026-07-15 MVP 設定: `.env` 作成 + API_SHARED_SECRET 生成 → `npm start` で API サーバ起動確認（認証なし 401 / 認証あり 404 を確認）
+- [x] 2026-07-15 MVP 設定: ANTHROPIC_API_KEY 投入 → `npm run llm:check -- --fixture` でトリアージ・要約のライブ確認（実データ確認は Google OAuth 投入後）
+- [x] 2026-07-15 MVP 設定: GITHUB_TOKEN（classic PAT / repo スコープ）+ GITHUB_REPOS 投入 → `npm run collectors:check` で GitHub/TODO セクション確認（昨日活動 0 件は Events 実データと一致）
+- [x] 2026-07-15 MVP 設定: Canvas iCal URL 投入 → `npm run collectors:check` で実フィードから今後 7 日の締切 4 件を取得確認
