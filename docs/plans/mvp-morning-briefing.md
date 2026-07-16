@@ -138,7 +138,19 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
   - フィクスチャ検証済み（トリアージ復元の不正 index/重複/並べ替え、出力 JSON の
     パース・スキーマ検証、プロンプト整形の index 付与・日付のみ dueAt の素通し）。
     **ライブ検証は `.env` に ANTHROPIC_API_KEY 投入後、`npm run llm:check -- --fixture` で行う**
-- [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
+- [x] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
+  - 実装: `src/db/repo.ts`（devices upsert / briefings 挿入・最新取得 / collector_runs 記録。
+    SQL をこのファイルに集約）、`src/server.ts`（node:http のみでフレームワークなし。
+    Bearer 共有シークレットを timingSafeEqual で照合、ボディ 64KB 上限、
+    token 1〜512 文字バリデーション。`API_SHARED_SECRET` 未設定なら起動拒否）、
+    `src/jobs/runBriefing.ts`（`npm run briefing` = 収集 → collector_runs 記録 →
+    LLM 生成 → briefings 保存。push は Step 6 でこの末尾に追加）、
+    `src/index.ts` をサーバ起動エントリに変更（`npm run dev` / `npm start`）
+  - ライブ検証済み（一時 DB + curl）: 401（認証なし/誤シークレット）、
+    POST /devices の登録・同一トークン upsert（行は増えない）・400（token 不正/不正 JSON）、
+    GET /briefings/latest の 404（未生成）→ 挿入後 200 で payload 復元、405/404、
+    シークレット未設定時の起動拒否、認証情報なしでの `npm run briefing`
+    （コレクタ警告を出しつつ collector_runs は記録、LLM で明示エラー終了）
 - [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
 - [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）
 - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
