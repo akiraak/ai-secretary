@@ -46,9 +46,17 @@ function wallClockUtcMs(instant: Date, tz: string): number {
   return Date.UTC(get('year'), get('month') - 1, get('day'), hour, get('minute'), get('second'));
 }
 
-/** tz ローカルの (y,m,d,h) に対応する実インスタントを返す。 */
-function tzLocalToInstant(y: number, m: number, d: number, hour: number, tz: string): Date {
-  const utcGuess = Date.UTC(y, m - 1, d, hour, 0, 0);
+/** tz ローカルの (y,m,d,h,mm,ss) に対応する実インスタントを返す。 */
+export function tzLocalToInstant(
+  y: number,
+  m: number,
+  d: number,
+  hour: number,
+  tz: string,
+  minute = 0,
+  second = 0,
+): Date {
+  const utcGuess = Date.UTC(y, m - 1, d, hour, minute, second);
   const offset = wallClockUtcMs(new Date(utcGuess), tz) - utcGuess; // = local - utc
   return new Date(utcGuess - offset);
 }

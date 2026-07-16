@@ -107,7 +107,13 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
   - **要ユーザー検証**: Google Cloud で「デスクトップアプリ」種別 OAuth クライアント作成 →
     ID/SECRET を `.env` → `npm run google:auth` でトークン取得 → `npm run collectors:check` で実データ確認
     （コードは typecheck 済み・未設定時は案内メッセージを出す。ライブ検証はユーザーの認証情報が必要）
-- [ ] Step 3: Canvas iCal コレクタ（.ics パース → 締切抽出）
+- [x] Step 3: Canvas iCal コレクタ（.ics パース → 締切抽出）
+  - 実装: `src/util/ics.ts`（最小 .ics パーサ: 行折り返し・TEXT エスケープ・VALUE=DATE / UTC / TZID 対応、
+    依存ライブラリなし）、`src/collectors/canvas.ts`（フィード取得 → 今日から `CANVAS_LOOKAHEAD_DAYS`
+    (既定 7) 日以内の締切を抽出。SUMMARY「課題名 [コース名]」を title / course に分離）、
+    `collectors:check` に Canvas セクション追加
+  - フィクスチャ検証済み（折り返し・エスケープ・過去/先読み範囲外の除外・TZID 変換）。
+    **ライブ検証は `.env` に CANVAS_ICAL_URL 投入後、`npm run collectors:check` で行う**
 - [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
 - [ ] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）
 - [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
