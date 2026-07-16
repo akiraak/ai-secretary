@@ -1,0 +1,2 @@
+// 全構成共通の xcconfig。署名などマシン固有の値は Local.xcconfig（git 管理外）に置く。
+#include? "Local.xcconfig"

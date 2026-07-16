@@ -1,0 +1,130 @@
+// バックエンドのレスポンス型。backend/src/types.ts / server.ts と 1:1 で対応させる。
+import Foundation
+
+/// GET /briefings/latest のレスポンス（server.ts handleLatestBriefing）
+struct LatestBriefing: Codable, Equatable {
+    let id: Int
+    let date: String // America/Los_Angeles の YYYY-MM-DD
+    let lang: String
+    let title: String?
+    let summary: String?
+    let payload: BriefingPayload
+    let createdAt: String
+    let pushedAt: String?
+}
+
+/// briefings.payload_json（types.ts BriefingPayload）
+struct BriefingPayload: Codable, Equatable {
+    let date: String
+    let lang: String
+    let deadlines: [DeadlineItem]
+    let todayEvents: [EventItem]
+    let todos: [TodoItem]
+    let mails: [MailItem]
+    let github: [GithubItem]
+}
+
+/// Canvas / Calendar から抽出した締切
+struct DeadlineItem: Codable, Equatable {
+    let source: String // "canvas" | "calendar"
+    let title: String
+    let dueAt: String // ISO8601 または YYYY-MM-DD（日付のみ）
+    let course: String?
+}
+
+/// 今日の予定
+struct EventItem: Codable, Equatable {
+    let title: String
+    let startAt: String // ISO8601
+    let endAt: String?
+    let location: String?
+}
+
+/// リポジトリ TODO.md の「今日やる／次の作業」
+struct TodoItem: Codable, Equatable {
+    let repo: String
+    let text: String
+}
+
+/// Gmail トリアージ結果
+struct MailItem: Codable, Equatable {
+    let priority: String // "action" | "info"
+    let from: String
+    let subject: String
+    let reason: String
+    let gmailLink: String?
+}
+
+/// 昨日の GitHub 活動
+struct GithubItem: Codable, Equatable {
+    let repo: String
+    let kind: String // "commit" | "pr"
+    let title: String
+    let url: String?
+}
+
+// MARK: - 日付ユーティリティ
+
+enum BriefingDate {
+    private static let isoWithFraction: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let iso: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+    private static let dateOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = .current // 日付のみの締切は端末ローカルの「その日」として扱う
+        return f
+    }()
+
+    /// ISO8601（小数秒あり/なし）→ YYYY-MM-DD の順で試すゆるいパーサ
+    static func parse(_ s: String) -> Date? {
+        isoWithFraction.date(from: s) ?? iso.date(from: s) ?? dateOnly.date(from: s)
+    }
+
+    /// 日付のみ表記（時刻情報なし）か
+    static func isDateOnly(_ s: String) -> Bool {
+        s.count == 10 && !s.contains("T")
+    }
+
+    /// 今日から締切までの残日数（暦日差）。パース不能なら nil
+    static func daysUntil(_ s: String) -> Int? {
+        guard let date = parse(s) else { return nil }
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: .now), to: cal.startOfDay(for: date)).day
+    }
+
+    /// 締切ピルの文言（期限切れ / 今日 / 明日 / あとN日）
+    static func dueLabel(_ s: String) -> String {
+        guard let days = daysUntil(s) else { return "" }
+        switch days {
+        case ..<0: return "期限切れ"
+        case 0: return "今日"
+        case 1: return "明日"
+        default: return "あと\(days)日"
+        }
+    }
+
+    /// "HH:mm" 表記（日付のみなら「終日」）
+    static func timeLabel(_ s: String) -> String {
+        if isDateOnly(s) { return "終日" }
+        guard let date = parse(s) else { return "" }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// "7月15日(火)" 表記（HOME の大タイトル用）
+    static func longDayLabel(_ s: String) -> String {
+        guard let date = parse(s) else { return s }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "M月d日(E)"
+        return f.string(from: date)
+    }
+}

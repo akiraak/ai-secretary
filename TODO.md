@@ -9,8 +9,9 @@
   - [x] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存（`npm start` = API サーバ、`npm run briefing` = 収集→生成→保存ジョブ。一時 DB + curl でライブ検証済み）
   - [x] Step 6: APNs 送信（.p8/JWT/HTTP2 を node 標準モジュールで自前実装。`npm run briefing` 末尾で push、`npm run apns:check` で単体検証。実機到達確認は .p8 投入後）
   - [x] iOS 画面設計（4画面のモックアップ・spec 作成） [spec](docs/specs/ios-app-screens.md)
-  - [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示。[画面設計](docs/specs/ios-app-screens.md)に従う）
+  - [x] Step 7: iOS アプリ雛形（`ios/` に SwiftUI 4タブアプリ。XcodeGen で生成、シミュレータ + ローカル API でライブ検証済み。実機の APNs 登録確認は署名設定後）
   - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
+  - [ ] ユーザー作業: `ios/Config/Local.example.xcconfig` を `Local.xcconfig` にコピーして DEVELOPMENT_TEAM を設定 → `cd ios && xcodegen generate` → Xcode で実機にインストール → 通知許可 → Setting タブでデバイス登録を確認
   - [ ] ユーザー作業: Google Cloud で「デスクトップアプリ」OAuth クライアント作成 → ID/SECRET を `.env` → `npm run google:auth` でリフレッシュトークン取得 → `npm run collectors:check` で実データ確認
   - [ ] ユーザー作業: `.env` に Canvas iCal URL / APNs 設定（APNS_KEY_ID / TEAM_ID / BUNDLE_ID / P8_PATH）を投入 → `npm run apns:check -- --token <デバイストークン>` で実機到達確認
   - [ ] ユーザー作業: `.env` に GITHUB_TOKEN（または `gh auth login`）と GITHUB_REPOS を設定 → `npm run collectors:check` で GitHub/TODO セクション確認

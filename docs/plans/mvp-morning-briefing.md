@@ -170,7 +170,24 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
     （403 InvalidProviderToken が正しくパースされる）。
     **実機への到達確認は `.env` に APNS_* 投入後、
     `npm run apns:check -- --token <デバイストークン>`（アプリ実装後は `npm run apns:check`）で行う**
-- [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）
+- [x] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）
+  - 実装: `ios/` に Swift/SwiftUI アプリ（iOS 17+、外部依存なし）。プロジェクトは XcodeGen
+    （`ios/project.yml` → `cd ios && xcodegen generate`。`.xcodeproj` は生成物なので git 管理外、
+    署名の Team ID は `ios/Config/Local.xcconfig`（git 管理外、example あり）。
+    Bundle ID = `com.akiraak.ai-secretary` — backend の APNS_BUNDLE_ID と一致させる）。
+    [画面設計](../specs/ios-app-screens.md)どおり オンボーディング（通知許可 → APNs トークン取得）+
+    4 タブ（HOME=統合フィード / GitHub / Calendar / Setting）。
+    `Models.swift`（backend types.ts と 1:1 の Codable + 日付ユーティリティ）、
+    `BackendClient.swift`（POST /devices・GET /briefings/latest、Bearer 認証、404=未生成は nil）、
+    `AppState.swift`（@Observable。設定は UserDefaults、トークン受領時に自動で /devices 登録、
+    通知タップで HOME を開いて再取得）、`AppDelegate.swift`（APNs コールバック +
+    フォアグラウンド通知表示）。HOME の済チェックは v1 は画面内のみ（TODO.md 書き戻しは後フェーズ）。
+    ATS は http の自宅サーバ向けに全許可（個人用 MVP）。
+  - 検証済み: シミュレータビルド成功。一時 DB にサンプルブリーフィングをシード →
+    ローカル API サーバ起動 → シミュレータ実機動作で オンボーディング / HOME（ライト・ダーク）が
+    設計どおり描画され、`GET /briefings/latest -> 200` をアプリから取得することを確認。
+    **APNs トークン登録の実機確認は Apple Developer 署名（Local.xcconfig の DEVELOPMENT_TEAM）
+    設定後、実機インストール → Setting タブで登録状態を確認**
 - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
 
 ## 影響範囲

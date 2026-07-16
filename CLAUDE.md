@@ -6,14 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ユーザー(Akira Kozakai)をサポートするパーソナル秘書アプリを構築するプロジェクト。GitHub リポジトリはプライベート設定。
 
-## 現在の状態
+## アーキテクチャ
 
-リポジトリは初期段階で、まだコードは存在しない(README.md のみ)。技術スタック・アーキテクチャは未決定。
+毎朝 07:00 PT に backend が「予定・締切・要対応メール・GitHub 活動」を収集 → LLM で日本語ブリーフィングに整形 → SQLite に保存 → APNs で iOS アプリへ push する。詳細は [docs/plans/mvp-morning-briefing.md](docs/plans/mvp-morning-briefing.md)。
 
-コードベースが形になり次第、このファイルに以下を追記すること:
+- `backend/` — TypeScript / Node（フレームワークなし、依存最小）。
+  `src/collectors/`（Calendar / Gmail / Canvas iCal / GitHub / TODO.md）→ `src/llm/`（Claude Haiku 4.5 でトリアージ・整形）→ `src/db/`（better-sqlite3。SQL は `db/repo.ts` に集約）→ `src/push/`（APNs を node:crypto + node:http2 で自前実装）。
+  `src/server.ts` = API（POST /devices, GET /briefings/latest。Bearer 共有シークレット認証）
+- `ios/` — Swift / SwiftUI アプリ（iOS 17+、外部依存なし）。オンボーディング（通知許可 → POST /devices）+ 4 タブ（HOME 統合フィード / GitHub / Calendar / Setting）。`Models.swift` は backend の `src/types.ts` と 1:1。画面設計は [docs/specs/ios-app-screens.md](docs/specs/ios-app-screens.md)
+- Bundle ID `com.akiraak.ai-secretary` は backend の `APNS_BUNDLE_ID` と一致させること
 
-- ビルド・リント・テストの実行コマンド(単一テストの実行方法を含む)
-- アーキテクチャの全体像(複数ファイルを読まないと分からない構造の説明)
+## ビルド・実行コマンド
+
+backend（`cd backend`、Node >= 22、設定は `.env` — `.env.example` 参照）:
+
+```bash
+npm run typecheck            # tsc --noEmit（テストは未整備。検証は各 check スクリプトで）
+npm start                    # API サーバ起動（要 API_SHARED_SECRET）
+npm run briefing             # 収集 → LLM 生成 → 保存 → push を 1 回実行（cron から呼ぶ）
+npm run collectors:check     # コレクタの実データ取得確認
+npm run llm:check -- --fixture   # LLM 層のみ検証（--fixture はサンプル入力）
+npm run apns:check -- --fixture  # APNs 層のみ検証（実機へは --token <hex>）
+```
+
+ios（`cd ios`。`.xcodeproj` は XcodeGen 生成物で git 管理外）:
+
+```bash
+xcodegen generate            # project.yml から AISecretary.xcodeproj を生成
+xcodebuild -project AISecretary.xcodeproj -scheme AISecretary \
+  -destination 'platform=iOS Simulator,name=iPhone 17' build CODE_SIGNING_ALLOWED=NO
+```
+
+実機ビルドは `Config/Local.example.xcconfig` を `Local.xcconfig` にコピーして `DEVELOPMENT_TEAM` を設定（git 管理外）。
 
 ## 作業方針
 

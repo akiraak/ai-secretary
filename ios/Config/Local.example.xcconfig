@@ -1,0 +1,3 @@
+// このファイルを Local.xcconfig にコピーして自分の値を入れる（Local.xcconfig は git 管理外）。
+// 実機ビルド・push 通知には Apple Developer の Team ID が必要。
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

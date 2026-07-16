@@ -6,6 +6,13 @@ backend/node_modules/
 backend/dist/
 backend/data/
 
+# ===== ios（XcodeGen 生成物: `cd ios && xcodegen generate` で再生成） =====
+ios/AISecretary.xcodeproj/
+ios/AISecretary/Info.plist
+ios/AISecretary/AISecretary.entitlements
+ios/Config/Local.xcconfig
+ios/DerivedData/
+
 # secrets — 絶対にコミットしない
 .env
 .env.local

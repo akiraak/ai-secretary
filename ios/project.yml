@@ -1,0 +1,44 @@
+# XcodeGen プロジェクト定義。`.xcodeproj` は生成物なのでコミットしない。
+#   brew install xcodegen
+#   cd ios && xcodegen generate
+# 実機ビルド用の署名チーム ID は Config/Local.xcconfig に置く（Local.example.xcconfig 参照）。
+name: AISecretary
+options:
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  AISecretary:
+    type: application
+    platform: iOS
+    sources:
+      - AISecretary
+    configFiles:
+      Debug: Config/Shared.xcconfig
+      Release: Config/Shared.xcconfig
+    settings:
+      base:
+        # backend の APNS_BUNDLE_ID と一致させること（apns-topic に使われる）
+        PRODUCT_BUNDLE_IDENTIFIER: com.akiraak.ai-secretary
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 1
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: AISecretary/Info.plist
+      properties:
+        CFBundleDisplayName: AI秘書
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        # 自宅サーバ（g3plus）へ http で届く必要があるため ATS を全許可（個人用 MVP。
+        # TestFlight 配布時に Tailscale HTTPS 等へ移行するなら締める）
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    entitlements:
+      path: AISecretary/AISecretary.entitlements
+      properties:
+        aps-environment: development
