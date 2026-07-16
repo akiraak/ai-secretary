@@ -5,6 +5,7 @@ vibeboard/node_modules/
 backend/node_modules/
 backend/dist/
 backend/data/
+backend/logs/
 
 # ===== ios（XcodeGen 生成物: `cd ios && xcodegen generate` で再生成） =====
 ios/AISecretary.xcodeproj/

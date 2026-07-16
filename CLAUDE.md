@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `backend/` — TypeScript / Node（フレームワークなし、依存最小）。
   `src/collectors/`（Calendar / Gmail / Canvas iCal / GitHub / TODO.md）→ `src/llm/`（Claude Haiku 4.5 でトリアージ・整形）→ `src/db/`（better-sqlite3。SQL は `db/repo.ts` に集約）→ `src/push/`（APNs を node:crypto + node:http2 で自前実装）。
-  `src/server.ts` = API（POST /devices, GET /briefings/latest。Bearer 共有シークレット認証）
+  `src/server.ts` = API（POST /devices, GET /briefings/latest。Bearer 共有シークレット認証）。
+  `scripts/cron-briefing.sh` = cron 用ラッパ、`deploy/` = crontab 例 + systemd unit。g3plus への配置手順は [docs/specs/deploy-g3plus.md](docs/specs/deploy-g3plus.md)
 - `ios/` — Swift / SwiftUI アプリ（iOS 17+、外部依存なし）。オンボーディング（通知許可 → POST /devices）+ 4 タブ（HOME 統合フィード / GitHub / Calendar / Setting）。`Models.swift` は backend の `src/types.ts` と 1:1。画面設計は [docs/specs/ios-app-screens.md](docs/specs/ios-app-screens.md)
 - Bundle ID `com.akiraak.ai-secretary` は backend の `APNS_BUNDLE_ID` と一致させること
 

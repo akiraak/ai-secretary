@@ -188,7 +188,19 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
     設計どおり描画され、`GET /briefings/latest -> 200` をアプリから取得することを確認。
     **APNs トークン登録の実機確認は Apple Developer 署名（Local.xcconfig の DEVELOPMENT_TEAM）
     設定後、実機インストール → Setting タブで登録状態を確認**
-- [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
+- [x] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
+  - 実装: `scripts/cron-briefing.sh`（cron ラッパ: 最小 PATH でも nvm / fnm default / 定番パスの順に
+    npm を解決、ログを `backend/logs/briefing-<日時>.log` に保存し 30 日で自動削除、
+    flock で多重起動防止、失敗時は exit code を維持しログ末尾を stderr へ = MAILTO でメール通知可）、
+    `deploy/crontab.example`（`CRON_TZ=America/Los_Angeles` + `0 7 * * *`。DST は cron が追従）、
+    `deploy/ai-secretary-api.service`（API サーバ常駐用 systemd unit）、
+    [デプロイ手順書](../specs/deploy-g3plus.md)（セットアップ → API 常駐 → cron 登録 →
+    エンドツーエンド確認 → 障害時の調べ方。CRON_TZ 非対応の古い cron 向けに systemd timer 代替も記載）
+  - 検証済み: ラッパを Mac でライブ実行（認証情報なし → コレクタ警告をログに記録し LLM 段階で
+    exit 1、stderr に失敗要約 + ログ末尾）。cron 相当の最小 PATH（`/usr/bin:/bin` のみ）でも
+    fnm default 経由で npm を解決してジョブが走ることを確認。
+    **g3plus への配置と iOS 実機までのエンドツーエンド確認は `.env` 一式投入後、
+    [デプロイ手順書](../specs/deploy-g3plus.md) に従って実施**
 
 ## 影響範囲
 

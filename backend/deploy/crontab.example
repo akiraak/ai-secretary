@@ -1,0 +1,13 @@
+# g3plus の crontab（`crontab -e`）に追記する内容。
+# パスはこのリポジトリの clone 先に合わせて書き換える。
+#
+# - CRON_TZ でシアトル時間 07:00 に実行する（DST の切り替えも cron が処理する）。
+#   Ubuntu 23.04+ / Debian 12+ の cron が対応。古い cron の場合は
+#   docs/specs/deploy-g3plus.md の systemd timer 代替を使う。
+# - 実行時刻（07:00）は backend/.env の BRIEFING_HOUR と合わせておく。
+# - 失敗時はラッパがログ末尾を stderr に出すので、MAILTO を設定すればメール通知になる
+#   （通知不要なら空のまま）。
+
+CRON_TZ=America/Los_Angeles
+MAILTO=""
+0 7 * * * /home/akiraak/ai-secretary/backend/scripts/cron-briefing.sh

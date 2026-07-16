@@ -10,10 +10,11 @@
   - [x] Step 6: APNs 送信（.p8/JWT/HTTP2 を node 標準モジュールで自前実装。`npm run briefing` 末尾で push、`npm run apns:check` で単体検証。実機到達確認は .p8 投入後）
   - [x] iOS 画面設計（4画面のモックアップ・spec 作成） [spec](docs/specs/ios-app-screens.md)
   - [x] Step 7: iOS アプリ雛形（`ios/` に SwiftUI 4タブアプリ。XcodeGen で生成、シミュレータ + ローカル API でライブ検証済み。実機の APNs 登録確認は署名設定後）
-  - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
+  - [x] Step 8: cron 実行環境（cron ラッパ + crontab 例 + API 常駐 systemd unit + デプロイ手順書。Mac でラッパのライブ検証済み。g3plus 配置と E2E 確認は下のユーザー作業） [手順](docs/specs/deploy-g3plus.md)
   - [ ] ユーザー作業: `ios/Config/Local.example.xcconfig` を `Local.xcconfig` にコピーして DEVELOPMENT_TEAM を設定 → `cd ios && xcodegen generate` → Xcode で実機にインストール → 通知許可 → Setting タブでデバイス登録を確認
   - [ ] ユーザー作業: Google Cloud で「デスクトップアプリ」OAuth クライアント作成 → ID/SECRET を `.env` → `npm run google:auth` でリフレッシュトークン取得 → `npm run collectors:check` で実データ確認
   - [ ] ユーザー作業: `.env` に Canvas iCal URL / APNs 設定（APNS_KEY_ID / TEAM_ID / BUNDLE_ID / P8_PATH）を投入 → `npm run apns:check -- --token <デバイストークン>` で実機到達確認
   - [ ] ユーザー作業: `.env` に GITHUB_TOKEN（または `gh auth login`）と GITHUB_REPOS を設定 → `npm run collectors:check` で GitHub/TODO セクション確認
   - [ ] ユーザー作業: `.env` に ANTHROPIC_API_KEY を設定 → `npm run llm:check -- --fixture` でトリアージ・要約のライブ確認（実データは `npm run llm:check`）
   - [ ] ユーザー作業: `.env` に API_SHARED_SECRET を設定（ランダム文字列。例: `openssl rand -hex 32`）→ `npm start` で API サーバ起動確認
+  - [ ] ユーザー作業: g3plus へデプロイ（`npm ci` → `.env`/`.p8` 配置 → systemd で API 常駐 → crontab 登録）→ `scripts/cron-briefing.sh` 手動実行で iOS 実機到達を確認 → 翌朝 07:00 PT の cron 配信を確認 [手順](docs/specs/deploy-g3plus.md)
