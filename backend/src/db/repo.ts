@@ -15,9 +15,14 @@ export function upsertDevice(token: string, platform = 'ios'): DeviceRow {
     .get(token, platform) as DeviceRow;
 }
 
-/** push 対象の全デバイス（Step 6 の APNs 送信で使う）。 */
+/** push 対象の全デバイス（APNs 送信で使う）。 */
 export function listDevices(): DeviceRow[] {
   return getDb().prepare('SELECT * FROM devices ORDER BY id').all() as DeviceRow[];
+}
+
+/** デバイスを削除する（APNs が 410 Unregistered を返した失効トークン）。 */
+export function deleteDevice(id: number): void {
+  getDb().prepare('DELETE FROM devices WHERE id = ?').run(id);
 }
 
 /** 生成したブリーフィングを保存し、行 id を返す。 */
@@ -42,6 +47,27 @@ export function latestBriefing(): BriefingRow | undefined {
   return getDb().prepare('SELECT * FROM briefings ORDER BY id DESC LIMIT 1').get() as
     | BriefingRow
     | undefined;
+}
+
+/** push 完了時刻を記録する（1 台以上に送信成功したとき）。 */
+export function markBriefingPushed(id: number): void {
+  getDb().prepare("UPDATE briefings SET pushed_at = datetime('now') WHERE id = ?").run(id);
+}
+
+/** push 送信結果を 1 デバイス分記録する。 */
+export function insertPushLog(log: {
+  briefingId: number;
+  deviceId: number;
+  status: 'sent' | 'failed';
+  apnsId?: string;
+  error?: string;
+}): void {
+  getDb()
+    .prepare(
+      `INSERT INTO push_log (briefing_id, device_id, status, apns_id, error)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(log.briefingId, log.deviceId, log.status, log.apnsId ?? null, log.error ?? null);
 }
 
 /** コレクタ実行結果を記録する（デバッグ・再生成用）。 */

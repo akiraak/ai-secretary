@@ -1,10 +1,10 @@
-// `npm run briefing` — 収集 → LLM 生成 → SQLite 保存 を 1 回実行する（cron から呼ぶ本体）。
-// APNs push は Step 6 でこのジョブの末尾に追加する。
+// `npm run briefing` — 収集 → LLM 生成 → SQLite 保存 → APNs push を 1 回実行する（cron から呼ぶ本体）。
 import { pathToFileURL } from 'node:url';
 import { closeDb } from '../db/index.js';
 import { insertBriefing, insertCollectorRun } from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
 import { generateBriefing } from '../llm/briefing.js';
+import { pushBriefingToDevices } from '../push/briefingPush.js';
 import type { CollectedInput } from '../types.js';
 
 /**
@@ -60,18 +60,32 @@ async function main(): Promise<void> {
   }
 
   const briefing = await generateBriefing(input);
+  const payloadJson = JSON.stringify(briefing.payload);
   const id = insertBriefing({
     briefingDate: input.date,
     lang: briefing.payload.lang,
     title: briefing.title,
     summary: briefing.summary,
-    payloadJson: JSON.stringify(briefing.payload),
+    payloadJson,
   });
 
   console.log(`保存: briefings.id=${id} (${input.date})`);
   console.log(`  title  : ${briefing.title}`);
   console.log(`  summary: ${briefing.summary}`);
-  console.log('TODO: Step 6 でここから APNs push を送る。');
+
+  const push = await pushBriefingToDevices({
+    id,
+    briefing_date: input.date,
+    title: briefing.title,
+    summary: briefing.summary,
+    payload_json: payloadJson,
+  });
+  for (const m of push.messages) console.log(push.attempted ? `  ${m}` : `⚠ ${m}`);
+  if (push.attempted) {
+    console.log(`push: 送信 ${push.sent} / 失敗 ${push.failed}`);
+    // 全デバイスへ送信失敗した朝は cron 監視で気付けるよう異常終了にする
+    if (push.sent === 0) process.exitCode = 1;
+  }
 }
 
 // 直接実行されたときだけ main を走らせる（collectorRunsFrom の import ではジョブを起動しない）

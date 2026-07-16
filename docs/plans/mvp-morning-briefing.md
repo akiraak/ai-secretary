@@ -151,7 +151,25 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
     GET /briefings/latest の 404（未生成）→ 挿入後 200 で payload 復元、405/404、
     シークレット未設定時の起動拒否、認証情報なしでの `npm run briefing`
     （コレクタ警告を出しつつ collector_runs は記録、LLM で明示エラー終了）
-- [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
+- [x] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
+  - 実装: 外部ライブラリなし（apns2 等は使わず、ES256 JWT は node:crypto の
+    `sign(..., dsaEncoding: 'ieee-p1363')`、送信は node:http2 —— 未確定だった「ライブラリ選定」はこれで確定）。
+    `src/push/apns.ts`（APNS_* 検証 + .p8 読込 → プロバイダ JWT 生成 → 1 つの HTTP/2 接続で
+    全デバイスへ alert push。410 Unregistered は gone フラグ、リクエスト 15 秒タイムアウト）、
+    `src/push/briefingPush.ts`（payload 組み立て: aps.alert = title/summary + フル briefing。
+    4KB 超過時はシグナルのみ briefingId/briefingDate に自動フォールバック —— どちらでもアプリは
+    GET /briefings/latest で本文取得可。送信結果を push_log に記録、1 台以上成功で
+    briefings.pushed_at 更新、410 のデバイスは devices から削除）、
+    `src/jobs/runBriefing.ts` 末尾に push 追加（APNs 未設定・デバイス未登録は警告してスキップ、
+    全デバイス送信失敗は exit 1 で cron 監視に引っ掛ける）、
+    `src/push/check.ts`（`npm run apns:check` = 登録デバイスへテスト通知、`-- --token <hex>` =
+    DB 登録前の実機検証、`-- --briefing` = 最新ブリーフィングを LLM 再生成なしで再 push、
+    `-- --fixture` = ネットワーク・.env なしで JWT と payload 組み立てを検証）
+  - フィクスチャ検証済み（JWT のヘッダ/クレーム/JOSE 形式署名の公開鍵検証、payload の 4KB トリム）。
+    自己生成 .p8 + sandbox 実エンドポイントで HTTP/2 送信経路も確認済み
+    （403 InvalidProviderToken が正しくパースされる）。
+    **実機への到達確認は `.env` に APNS_* 投入後、
+    `npm run apns:check -- --token <デバイストークン>`（アプリ実装後は `npm run apns:check`）で行う**
 - [ ] Step 7: iOS アプリ雛形（通知登録 → トークン送信 → ブリーフィング表示）
 - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
 
@@ -168,6 +186,5 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
 
 ## 未確定・実装中に詰める点
 
-- Node の APNs ライブラリ選定
 - Gmail の「要対応」抽出クエリの具体化（ラベル・エイリアス活用）
 - ブリーフィングの文面フォーマット（項目順・長さ）
