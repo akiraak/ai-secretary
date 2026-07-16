@@ -4,7 +4,7 @@
   - [x] Step 1: バックエンド雛形（TS/Node、.env.example、.gitignore、SQLite スキーマ）
   - [x] Step 2: Google OAuth 設定 + Calendar / Gmail コレクタ（backend 用の自前 API アクセス。要ユーザー検証）
   - [x] Step 3: Canvas iCal コレクタ（.ics パース → 締切。ライブ検証は iCal URL 投入後）
-  - [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリ TODO.md 読み取り
+  - [x] Step 3.5: GitHub コレクタ（昨日の commits/PR）+ 各リポジトリ TODO.md 読み取り（GitHub API ライブ検証はトークン投入後）
   - [ ] Step 4: LLM 層（Claude Haiku 4.5 で日本語ブリーフィング整形・トリアージ）
   - [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
   - [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push
@@ -13,3 +13,4 @@
   - [ ] Step 8: cron で毎朝 07:00 PT 実行 → エンドツーエンド確認
   - [ ] ユーザー作業: Google Cloud で「デスクトップアプリ」OAuth クライアント作成 → ID/SECRET を `.env` → `npm run google:auth` でリフレッシュトークン取得 → `npm run collectors:check` で実データ確認
   - [ ] ユーザー作業: `.env` に Canvas iCal URL / APNs .p8 を投入
+  - [ ] ユーザー作業: `.env` に GITHUB_TOKEN（または `gh auth login`）と GITHUB_REPOS を設定 → `npm run collectors:check` で GitHub/TODO セクション確認

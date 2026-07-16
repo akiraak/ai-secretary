@@ -114,7 +114,18 @@ API_SHARED_SECRET=         # /devices, /briefings/latest の Bearer
     `collectors:check` に Canvas セクション追加
   - フィクスチャ検証済み（折り返し・エスケープ・過去/先読み範囲外の除外・TZID 変換）。
     **ライブ検証は `.env` に CANVAS_ICAL_URL 投入後、`npm run collectors:check` で行う**
-- [ ] Step 3.5: GitHub コレクタ（gh CLI: 昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
+- [x] Step 3.5: GitHub コレクタ（昨日の commits/PR）+ 各リポジトリの TODO.md 読み取り
+  - 実装: `src/collectors/github.ts`（Events API から PushEvent/PullRequestEvent を抽出。
+    昨日(PT)窓でフィルタ、commit は sha で dedupe・`distinct=false` 除外、PR は
+    作成/マージ/クローズ/再オープンのみ拾う。認証は `GITHUB_TOKEN` → `gh auth token` の順で解決
+    —— この Mac に gh CLI が無いため「gh CLI 前提」から「API 直 fetch + トークンを gh から借りられる」方式に変更）、
+    `src/collectors/todos.ts`（`GITHUB_REPOS` の各エントリから TODO.md を読む。
+    `owner/repo` は GitHub API、`/` `.` `~` 始まりはローカルパス。トップレベルの `- [ ]` のみ抽出、
+    リンクはラベルだけ残す、読めないリポジトリは警告してスキップ）、`collectors:check` に両セクション追加
+  - フィクスチャ検証済み（窓フィルタ・dedupe・PR アクション別ラベル・時系列順・TODO 抽出規則）。
+    ローカル TODO.md 読み取りは本リポジトリで実データ確認済み。
+    **GitHub API のライブ検証は `.env` に GITHUB_TOKEN（または `gh auth login`）投入後、
+    `npm run collectors:check` で行う**
 - [ ] Step 4: LLM 層（Claude Haiku 4.5 で収集結果を日本語ブリーフィングに整形・トリアージ）
 - [ ] Step 5: API（POST /devices, GET /briefings/latest）+ SQLite 保存
 - [ ] Step 6: APNs 送信（.p8/JWT/HTTP2）でデバイスへ push

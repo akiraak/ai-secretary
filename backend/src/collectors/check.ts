@@ -1,11 +1,14 @@
-// `npm run collectors:check` — Calendar / Gmail / Canvas コレクタが実データを取得できるか確認する。
+// `npm run collectors:check` — Calendar / Gmail / Canvas / GitHub / TODO コレクタが実データを取得できるか確認する。
 // .env に GOOGLE_* が設定済みで、`npm run google:auth` でリフレッシュトークンを取得済みであること。
-// Canvas は CANVAS_ICAL_URL の設定が必要。
+// Canvas は CANVAS_ICAL_URL、GitHub は GITHUB_TOKEN（または gh CLI ログイン）、
+// TODO は GITHUB_REPOS の設定が必要。
 import { config } from '../config.js';
 import { briefingDate } from '../util/time.js';
 import { collectCalendar } from './calendar.js';
 import { collectCanvas } from './canvas.js';
+import { collectGithub } from './github.js';
 import { collectGmail } from './gmail.js';
+import { collectTodos } from './todos.js';
 
 async function main(): Promise<void> {
   const now = new Date();
@@ -57,6 +60,32 @@ async function main(): Promise<void> {
     }
   } catch (e) {
     console.error('[Canvas] 失敗:', (e as Error).message);
+  }
+
+  console.log('');
+
+  // --- GitHub ---
+  try {
+    const items = await collectGithub(now);
+    console.log(`[GitHub] 昨日の活動 ${items.length} 件`);
+    for (const g of items) {
+      console.log(`  ・${g.kind === 'commit' ? '🔨' : '🔀'} ${g.repo}  ${g.title}`);
+    }
+  } catch (e) {
+    console.error('[GitHub] 失敗:', (e as Error).message);
+  }
+
+  console.log('');
+
+  // --- TODO.md ---
+  try {
+    const todos = await collectTodos();
+    console.log(`[TODO] 未完了タスク ${todos.length} 件（${config.github.repos.length} リポジトリ）`);
+    for (const t of todos) {
+      console.log(`  ・${t.repo}: ${t.text}`);
+    }
+  } catch (e) {
+    console.error('[TODO] 失敗:', (e as Error).message);
   }
 }
 
