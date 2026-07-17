@@ -2,9 +2,11 @@
 // エンドポイントが少ないのでフレームワークは使わず node:http で実装する。
 //   POST /devices             — iOS デバイストークン登録 {token, platform?}
 //   GET  /briefings/latest    — 最新ブリーフィング JSON（アプリのプル元）
-//   GET  /admin               — 管理画面（静的 HTML。データを含まないため認証なし）
+//   GET  /admin               — 管理画面（静的 HTML。`ADMIN_ENABLED=on` のときのみ）
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
+// /admin* は ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。本番は前段の
+// Cloudflare Access で /admin を保護してから有効化する。
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
@@ -105,7 +107,13 @@ export function createServer(secret: string): http.Server {
       console.log(`${req.method} ${req.url} -> ${res.statusCode}`);
     });
     try {
-      const path = (req.url ?? '/').split('?')[0];
+      const path = (req.url ?? '/').split('?')[0] ?? '/';
+
+      // /admin* は ADMIN_ENABLED=on のときだけ存在する。無効時は存在ごと隠す（404）
+      if ((path === '/admin' || path.startsWith('/admin/')) && !config.server.adminEnabled) {
+        sendJson(res, 404, { error: 'not found' });
+        return;
+      }
 
       // 管理画面の静的ページのみ認証なし（シークレット入力用の器で、データは status 側が守る）
       if (path === '/admin' || path === '/admin/') {
@@ -181,6 +189,11 @@ export function startServer(): http.Server {
   server.listen(config.server.port, () => {
     console.log(`ai-secretary API サーバ起動: http://localhost:${config.server.port}`);
     console.log(`  DB: ${config.db.path}`);
+    console.log(
+      config.server.adminEnabled
+        ? `  admin: http://localhost:${config.server.port}/admin`
+        : '  admin: 無効 (前段の Cloudflare Access 設定後に ADMIN_ENABLED=on で有効化)',
+    );
   });
   return server;
 }

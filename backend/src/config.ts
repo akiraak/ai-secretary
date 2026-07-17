@@ -68,6 +68,9 @@ export const config = {
   server: {
     port: Number.parseInt(withDefault('PORT', '8787'), 10),
     sharedSecret: optional('API_SHARED_SECRET'),
+    // /admin* は明示的に on にしたときだけ存在する（fail-safe）。
+    // 本番では前段（Cloudflare Access）の認証を設定してから有効化する。
+    adminEnabled: optional('ADMIN_ENABLED') === 'on',
   },
   db: {
     path: optional('DB_PATH') ?? path.join(BACKEND_ROOT, 'data', 'ai-secretary.db'),

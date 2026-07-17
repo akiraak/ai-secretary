@@ -18,6 +18,8 @@ g3plus（Ubuntu）に backend を配置し、
 - `.env` 一式が揃っていること（TODO.md の「ユーザー作業」参照）:
   Google OAuth / Canvas iCal URL / GITHUB_TOKEN / ANTHROPIC_API_KEY / APNS_* / API_SHARED_SECRET。
   Mac で検証済みの `.env` と `.p8` をそのまま持ち込むのが早い（どちらも git 管理外なので scp 等で）
+- 管理画面 `/admin` は **`ADMIN_ENABLED=on` の明示があるときだけ存在する**（無ければ `/admin*` は全て 404 = fail-safe）。
+  本番では前段（Cloudflare Access 等）で `/admin` を認証保護してから on にする
 
 ## 1. セットアップ
 
