@@ -17,8 +17,11 @@ async function main(): Promise<void> {
 
   // --- Calendar ---
   try {
-    const { events, deadlines } = await collectCalendar(now);
-    console.log(`[Calendar] 今日の予定 ${events.length} 件 / 締切(終日) ${deadlines.length} 件`);
+    const { events, todayEvents, deadlines } = await collectCalendar(now);
+    console.log(
+      `[Calendar] 予定 ${events.length} 件（今後 ${config.google.calendarLookaheadDays} 日 / ` +
+        `今日 ${todayEvents.length} 件） / 締切(終日) ${deadlines.length} 件`,
+    );
     for (const e of events) {
       const t = new Date(e.startAt).toLocaleString('ja-JP', { timeZone: tz });
       console.log(`  ・${t}  ${e.title}${e.location ? ` @${e.location}` : ''}`);

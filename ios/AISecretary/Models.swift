@@ -19,6 +19,10 @@ struct BriefingPayload: Codable, Equatable {
     let lang: String
     let deadlines: [DeadlineItem]
     let todayEvents: [EventItem]
+    /// 収集窓（CALENDAR_LOOKAHEAD_DAYS）内の全予定。週/月表示のデータ源。旧 payload には無い
+    let events: [EventItem]?
+    /// 前回ブリーフィング以降のカレンダー変更。旧 payload には無い
+    let calendarChanges: [CalendarChange]?
     let todos: [TodoItem]
     let mails: [MailItem]
     let github: [GithubItem]
@@ -32,8 +36,20 @@ struct DeadlineItem: Codable, Equatable {
     let course: String?
     /// ics の UID（event-assignment-<id>）。canvas 由来のみ。手動完了チェックのキー
     let uid: String?
+    /// Google Calendar のイベント ID。calendar 由来のみ
+    let id: String?
     /// 手動で完了済みにした締切（ブリーフィング生成時点のスナップショット）
     let completed: Bool?
+    /// 前回ブリーフィング以降に追加/変更された締切 ("new" | "updated")
+    let changed: String?
+}
+
+/// 前回ブリーフィング以降のカレンダー変更 1 件
+struct CalendarChange: Codable, Equatable {
+    let kind: String // "new" | "updated" | "removed"
+    let source: String // "calendar" | "canvas"
+    let title: String
+    let detail: String?
 }
 
 /// GET /deadlines のレスポンス（server.ts handleListDeadlines）
@@ -44,12 +60,16 @@ struct DeadlinesResponse: Codable, Equatable {
     let deadlines: [DeadlineItem]
 }
 
-/// 今日の予定
+/// カレンダーの予定（時刻付きイベント）
 struct EventItem: Codable, Equatable {
+    /// Google Calendar のイベント ID
+    let id: String?
     let title: String
     let startAt: String // ISO8601
     let endAt: String?
     let location: String?
+    /// 前回ブリーフィング以降に追加/変更された予定 ("new" | "updated")
+    let changed: String?
 }
 
 /// リポジトリ TODO.md の「今日やる／次の作業」

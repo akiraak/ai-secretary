@@ -10,6 +10,7 @@ import {
   listCompletedDeadlineUids,
 } from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
+import { annotateChanges, detectCalendarChanges } from './calendarDiff.js';
 import { generateBriefing } from '../llm/briefing.js';
 import { pushBriefingToDevices } from '../push/briefingPush.js';
 import { briefingDate } from '../util/time.js';
@@ -45,7 +46,8 @@ export function collectorRunsFrom(
       source: 'calendar',
       warnPrefix: '[Calendar]',
       raw: {
-        events: input.todayEvents,
+        events: input.events,
+        todayEvents: input.todayEvents,
         deadlines: input.deadlines.filter((d) => d.source === 'calendar'),
       },
     },
@@ -76,13 +78,31 @@ async function main(): Promise<void> {
   const { input, warnings } = await collectAll(now);
   for (const w of warnings) console.warn(`⚠ ${w}`);
   console.log(
-    `収集: 予定 ${input.todayEvents.length} / 締切 ${input.deadlines.length} / ` +
+    `収集: 予定 ${input.events.length}（今日 ${input.todayEvents.length}） / 締切 ${input.deadlines.length} / ` +
       `TODO ${input.todos.length} / GitHub ${input.github.length} / メール候補 ${input.mailCandidates.length}`,
   );
 
   for (const run of collectorRunsFrom(input, warnings)) {
     insertCollectorRun({ briefingDate: input.date, ...run });
   }
+
+  // 前回ブリーフィング以降のカレンダー変更を検出し、events / deadlines に changed を付与する。
+  // 失敗したコレクタのソースは差分・スナップショット更新ともスキップ（全件「削除」の誤検知防止）
+  const diff = detectCalendarChanges({
+    events: input.events,
+    deadlines: input.deadlines,
+    sources: {
+      calendar: !warnings.some((w) => w.startsWith('[Calendar]')),
+      canvas: !warnings.some((w) => w.startsWith('[Canvas]')),
+    },
+    now,
+  });
+  annotateChanges(input, diff.changedKeys);
+  input.calendarChanges = diff.changes;
+  const kindCount = (kind: string) => diff.changes.filter((c) => c.kind === kind).length;
+  console.log(
+    `カレンダー変更: 新規 ${kindCount('new')} / 変更 ${kindCount('updated')} / 削除 ${kindCount('removed')}`,
+  );
 
   // 手動完了済みの締切は LLM 入力（= 通知文面）から除外し、payload には全件フラグ付きで残す
   cleanupDeadlineCompletions(

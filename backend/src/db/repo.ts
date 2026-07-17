@@ -162,6 +162,38 @@ export function cleanupDeadlineCompletions(cutoffDate: string): number {
   return result.changes;
 }
 
+/** calendar_items の 1 行（変更検知用スナップショット） */
+export interface CalendarItemRow {
+  key: string;
+  source: 'calendar' | 'canvas';
+  fingerprint: string;
+  start_at: string;
+  title: string;
+}
+
+/** 指定ソースの前回スナップショット全件。 */
+export function listCalendarItems(source: 'calendar' | 'canvas'): CalendarItemRow[] {
+  return getDb()
+    .prepare('SELECT key, source, fingerprint, start_at, title FROM calendar_items WHERE source = ?')
+    .all(source) as CalendarItemRow[];
+}
+
+/** 指定ソースのスナップショットを今回の収集内容で丸ごと置き換える。 */
+export function replaceCalendarItems(
+  source: 'calendar' | 'canvas',
+  items: Omit<CalendarItemRow, 'source'>[],
+): void {
+  const db = getDb();
+  const insert = db.prepare(
+    `INSERT INTO calendar_items (key, source, fingerprint, start_at, title)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+  db.transaction(() => {
+    db.prepare('DELETE FROM calendar_items WHERE source = ?').run(source);
+    for (const it of items) insert.run(it.key, source, it.fingerprint, it.start_at, it.title);
+  })();
+}
+
 /** 指定ソースの最新の成功したコレクタ実行（GET /deadlines のデータ源）。 */
 export function latestCollectorRunRaw(
   source: string,

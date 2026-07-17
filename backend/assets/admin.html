@@ -139,7 +139,7 @@
     <h1>カレンダー</h1>
     <p class="page-sub" id="calInfoSub">未読み込み</p>
 
-    <h2>今日の予定 <span class="faint mono" id="calEventsAt"></span></h2>
+    <h2>今後の予定 <span class="faint mono" id="calEventsAt"></span></h2>
     <div class="card" id="calEvents"><div class="empty">（なし）</div></div>
 
     <h2>今後の締切 <span class="faint mono" id="calDeadlinesAt"></span></h2>
@@ -307,7 +307,8 @@ async function refreshCalendar() {
   $('calEventsAt').textContent = d.events.collectedAt ? `収集 ${seattle(d.events.collectedAt)}` : '';
   $('calDeadlinesAt').textContent = d.deadlines.collectedAt ? `収集 ${seattle(d.deadlines.collectedAt)}` : '';
 
-  renderTable($('calEvents'), d.events.items, ['時刻', '予定', '場所'], (e) => `
+  renderTable($('calEvents'), d.events.items, ['日付', '時刻', '予定', '場所'], (e) => `
+    <td class="mono dim">${seattle(e.startAt).slice(0, 10)}</td>
     <td class="mono">${eventTime(e)}</td>
     <td>${esc(e.title)}</td>
     <td class="dim">${esc(e.location ?? '')}</td>`);

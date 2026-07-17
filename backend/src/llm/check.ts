@@ -14,12 +14,21 @@ function fixtureInput(now: Date): CollectedInput {
   const iso = (h: number) => new Date(now.getTime() + h * 3600_000).toISOString();
   return {
     date,
+    events: [
+      { id: 'ev1', title: 'ESL クラス', startAt: iso(3), endAt: iso(5), location: 'Shoreline CC' },
+      { id: 'ev2', title: '歯科検診', startAt: iso(75), endAt: iso(76), changed: 'updated' },
+    ],
     todayEvents: [
-      { title: 'ESL クラス', startAt: iso(3), endAt: iso(5), location: 'Shoreline CC' },
+      { id: 'ev1', title: 'ESL クラス', startAt: iso(3), endAt: iso(5), location: 'Shoreline CC' },
     ],
     deadlines: [
-      { source: 'canvas', title: 'Unit 3 Essay Draft', dueAt: iso(30), course: 'ESLAF 063' },
+      { source: 'canvas', title: 'Unit 3 Essay Draft', dueAt: iso(30), course: 'ESLAF 063', changed: 'new' },
       { source: 'calendar', title: '保険の更新', dueAt: date },
+    ],
+    calendarChanges: [
+      { kind: 'new', source: 'canvas', title: 'Unit 3 Essay Draft', detail: '7/18(土) 23:59' },
+      { kind: 'updated', source: 'calendar', title: '歯科検診', detail: '7/19(日) 14:00 → 7/20(月) 10:00' },
+      { kind: 'removed', source: 'calendar', title: 'チームランチ', detail: '7/22(水) 12:00' },
     ],
     todos: [
       { repo: 'ai-secretary', text: 'MVP Step 5: API + SQLite 保存' },

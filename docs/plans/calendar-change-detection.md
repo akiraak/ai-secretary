@@ -111,10 +111,22 @@ CREATE TABLE IF NOT EXISTS calendar_items (
 - `run-admin.sh` で briefing を 2 回（間で予定を 1 件変更）→ 2 回目の summary が変更に言及、payload に calendarChanges
 - 実機: バッジ表示と、翌朝の briefing で前日差分が出ることを確認
 
+## 実装メモ（2026-07-17、プランからの差分）
+
+- 収集窓の既定は **31 日**（`CALENDAR_LOOKAHEAD_DAYS`。週/月表示プランと共用のため 14 から変更）
+- **窓末端スクロールインの new 抑止**: 窓が毎日 1 日ずれるため、窓の最終日（today + N - 1）以降に
+  始まる新出項目は「窓に入っただけ」とみなし new を出さない（`newCutoff`）
+- **ベースラインはソース単位**: `calendar_items` にそのソースの行が無ければ初回とみなす
+  （初回デプロイ時に片方のコレクタだけ失敗しても、後日そのソースが全件「新規」で溢れない）
+- スナップショット更新は**ソース単位の丸ごと置き換え**（`replaceCalendarItems`。upsert/delete の個別管理より単純）
+- コレクタが失敗したソースは差分もスナップショット更新もスキップ（空収集による全件「削除」誤検知の防止）
+- diff ロジックは `src/jobs/calendarDiff.ts`（純粋関数）+ SQL は `db/repo.ts`。単体検証は `npm run diff:check`
+- 変更一覧はアプリでは HOME のカード + Calendar タブの「カレンダーの変更」セクションに表示
+
 ## Steps
 
-- [ ] backend: calendar_items テーブル + diffCalendarItems（単体テスト付き）
-- [ ] backend: collectCalendar に id 保持 + 収集窓拡張（config）
-- [ ] backend: runBriefing で差分 → changed 付与 + プロンプト変更セクション + summary ルール
-- [ ] iOS: 新規/変更バッジ
+- [x] backend: calendar_items テーブル + diffCalendarItems（単体チェック `npm run diff:check` 付き）
+- [x] backend: collectCalendar に id 保持 + 収集窓拡張（config）
+- [x] backend: runBriefing で差分 → changed 付与 + プロンプト変更セクション + summary ルール
+- [x] iOS: 新規/変更バッジ + 変更一覧表示（シミュレータビルドまで確認）
 - [ ] 本番デプロイ + 実機で差分表示・briefing 言及を確認

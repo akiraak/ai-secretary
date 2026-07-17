@@ -15,6 +15,7 @@
     "db:init": "tsx src/db/init.ts",
     "google:auth": "tsx src/auth/googleGetToken.ts",
     "collectors:check": "tsx src/collectors/check.ts",
+    "diff:check": "tsx src/jobs/calendarDiffCheck.ts",
     "llm:check": "tsx src/llm/check.ts",
     "apns:check": "tsx src/push/check.ts",
     "briefing": "tsx src/jobs/runBriefing.ts"

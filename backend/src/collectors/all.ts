@@ -29,7 +29,7 @@ export async function collectAll(now: Date): Promise<CollectResult> {
   };
 
   const [calendar, canvasDeadlines, mailCandidates, github, todos] = await Promise.all([
-    safe('Calendar', { events: [], deadlines: [] }, () => collectCalendar(now)),
+    safe('Calendar', { events: [], todayEvents: [], deadlines: [] }, () => collectCalendar(now)),
     safe('Canvas', [], () => collectCanvas(now)),
     safe('Gmail', [], () => collectGmail()),
     safe('GitHub', [], () => collectGithub(now)),
@@ -45,7 +45,8 @@ export async function collectAll(now: Date): Promise<CollectResult> {
   return {
     input: {
       date: briefingDate(now, config.briefing.tz),
-      todayEvents: calendar.events,
+      events: calendar.events,
+      todayEvents: calendar.todayEvents,
       deadlines,
       todos,
       github,

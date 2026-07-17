@@ -69,6 +69,63 @@ struct SectionCard<Content: View>: View {
     }
 }
 
+/// 前回ブリーフィング以降の変更バッジ（新規=緑 / 変更=琥珀）。
+/// EventItem.changed / DeadlineItem.changed ("new" | "updated") に対応
+struct ChangeBadge: View {
+    let changed: String
+
+    var body: some View {
+        Text(changed == "new" ? "新規" : "変更")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(changed == "new" ? Color.doneGreen : Color.amberAccent, in: Capsule())
+    }
+}
+
+/// カレンダー変更一覧の 1 行（HOME のカードと Calendar タブで共用）
+struct CalendarChangeRow: View {
+    let change: CalendarChange
+
+    private var kindLabel: String {
+        switch change.kind {
+        case "new": return "新規"
+        case "updated": return "変更"
+        default: return "削除"
+        }
+    }
+
+    private var kindColor: Color {
+        switch change.kind {
+        case "new": return .doneGreen
+        case "updated": return .amberAccent
+        default: return .deadlineRed
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(kindLabel)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(kindColor, in: Capsule())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(change.title)
+                    .font(.subheadline)
+                    .strikethrough(change.kind == "removed")
+                    .foregroundStyle(change.kind == "removed" ? .secondary : .primary)
+                if let detail = change.detail, !detail.isEmpty {
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+    }
+}
+
 /// データがないときの控えめな空表示
 struct EmptyRow: View {
     let message: String

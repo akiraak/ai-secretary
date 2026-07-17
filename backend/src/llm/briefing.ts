@@ -50,6 +50,8 @@ push 通知のタイトル。「M/D(曜) 朝ブリーフィング」に、最重
 
 # 3. summary
 push 通知の本文になる 2〜4 文の日本語要約。締切・今日の予定・要対応メールのうち重要なものに件数とともに触れる。
+「カレンダーの変更」に項目があれば、件数と重要な変更内容（例: 「◯◯が7/21に変更」「新しい予定 2 件」）に必ず触れる。
+無ければ変更には触れない。
 入力に存在しない情報は決して書かない。項目が全て空なら「今日は特に予定・締切・要対応メールはありません。」とする。`;
 
 // 構造化出力スキーマ。全オブジェクトに additionalProperties: false が必須。
@@ -143,6 +145,8 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
       lang: config.briefing.lang,
       deadlines: input.deadlines,
       todayEvents: input.todayEvents,
+      events: input.events,
+      calendarChanges: input.calendarChanges ?? [],
       todos: input.todos,
       mails,
       github: input.github,
@@ -175,6 +179,13 @@ export function buildUserPrompt(input: CollectedInput): string {
   lines.push('', `## 締切 (${input.deadlines.length}件)`);
   for (const d of input.deadlines) {
     lines.push(`- ${fmtInstant(d.dueAt)} ${d.title}${d.course ? ` [${d.course}]` : ''} (${d.source})`);
+  }
+
+  const changes = input.calendarChanges ?? [];
+  const kindLabel = { new: '新規', updated: '変更', removed: '削除' } as const;
+  lines.push('', `## カレンダーの変更（前回のブリーフィング以降） (${changes.length}件)`);
+  for (const c of changes) {
+    lines.push(`- [${kindLabel[c.kind]}] ${c.title}${c.detail ? `（${c.detail}）` : ''}`);
   }
 
   lines.push('', `## 今日やる / 次の作業 (TODO ${input.todos.length}件)`);

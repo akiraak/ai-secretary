@@ -33,6 +33,8 @@ export const config = {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    // 予定を先読みする日数（今日から N 日後 00:00 まで。週/月表示・変更検知の収集窓）
+    calendarLookaheadDays: Number.parseInt(withDefault('CALENDAR_LOOKAHEAD_DAYS', '31'), 10),
     // google:auth スクリプトのローカルループバックポート
     oauthPort: Number.parseInt(withDefault('GOOGLE_OAUTH_PORT', '5858'), 10),
   },

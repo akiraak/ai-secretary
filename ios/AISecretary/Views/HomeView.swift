@@ -103,6 +103,14 @@ struct HomeView: View {
         let actionMails = payload.mails.filter { $0.priority == "action" }
         let infoMails = payload.mails.filter { $0.priority != "action" }
 
+        if let changes = payload.calendarChanges, !changes.isEmpty {
+            SectionCard(title: "カレンダーの変更", linkTab: .calendar) {
+                ForEach(changes.indices, id: \.self) { i in
+                    CalendarChangeRow(change: changes[i])
+                }
+            }
+        }
+
         SectionCard(title: "締切が近い", linkTab: .calendar) {
             if payload.deadlines.isEmpty {
                 EmptyRow(message: "直近の締切はありません")
@@ -180,10 +188,13 @@ struct HomeView: View {
             }
             DuePill(dueAt: item.dueAt)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.subheadline)
-                    .strikethrough(done)
-                    .foregroundStyle(done ? .secondary : .primary)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(item.title)
+                        .font(.subheadline)
+                        .strikethrough(done)
+                        .foregroundStyle(done ? .secondary : .primary)
+                    if let changed = item.changed { ChangeBadge(changed: changed) }
+                }
                 if let course = item.course, !course.isEmpty {
                     Text(course).font(.caption).foregroundStyle(.secondary)
                 }

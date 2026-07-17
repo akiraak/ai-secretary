@@ -69,6 +69,17 @@ CREATE TABLE IF NOT EXISTS llm_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
 
+-- カレンダー/締切の変更検知用スナップショット（前回ブリーフィング時点の状態）。
+-- 毎回のブリーフィングで収集窓の内容と突き合わせ、追加/変更/削除を検出してから置き換える
+CREATE TABLE IF NOT EXISTS calendar_items (
+  key         TEXT PRIMARY KEY,   -- 'gcal:<eventId>' / 'canvas:<uid>'
+  source      TEXT NOT NULL,      -- calendar | canvas
+  fingerprint TEXT NOT NULL,      -- 変更検知用: calendar=start|end|title|location / canvas・終日=dueAt|title
+  start_at    TEXT NOT NULL,      -- 開始(期日)。窓スクロールアウトの誤「削除」判定を防ぐ基準
+  title       TEXT NOT NULL,      -- 変更メッセージ表示用スナップショット
+  last_seen   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version    INTEGER NOT NULL,
   applied_at TEXT NOT NULL DEFAULT (datetime('now'))
