@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 秘書 - 管理画面</title>
+<style>
+  /* デザインは esl-learning-assistant の管理画面（PAGE_STYLE）に合わせている */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0C1116; color: #E6EDF3; font-size: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+  }
+  a { color: #38BDF8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    flex: 0 0 200px; background: #0E141B; border-right: 1px solid #1F2A35;
+    padding: 18px 0; display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar .brand { color: #fff; font-weight: 700; font-size: 14px; padding: 4px 20px 18px; }
+  .sidebar .brand small { display: block; font-weight: 400; font-size: 10px; color: #66737F; letter-spacing: 0.12em; margin-top: 2px; }
+  .sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+  .sidebar nav a { color: #8B98A5; font-size: 13px; padding: 9px 20px; border-left: 3px solid transparent; }
+  .sidebar nav a:hover { color: #E6EDF3; background: rgba(255,255,255,0.03); text-decoration: none; }
+  .sidebar nav a.active { color: #fff; background: rgba(56,189,248,0.12); border-left-color: #38BDF8; font-weight: 600; }
+  .sidebar .foot { margin-top: auto; padding: 16px 20px 4px; font-size: 11px; color: #66737F; }
+  .sidebar .foot input {
+    width: 100%; margin: 6px 0; padding: 6px 8px; font: inherit; font-size: 12px;
+    background: #0C1116; color: #E6EDF3; border: 1px solid #1F2A35; border-radius: 6px;
+  }
+  main { flex: 1; padding: 24px 28px 48px; min-width: 0; }
+  h1 { font-size: 19px; margin: 0 0 4px; font-weight: 600; }
+  h2 { font-size: 15px; margin: 24px 0 10px; }
+  .page-sub { color: #8B98A5; font-size: 12px; margin: 0 0 18px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .dim { color: #8B98A5; }
+  .faint { color: #66737F; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 0 0 18px; max-width: 980px; }
+  .stat { background: #111820; border: 1px solid #1F2A35; border-radius: 10px; padding: 13px 16px; }
+  .stat .lbl { font-size: 11px; letter-spacing: 0.08em; color: #8B98A5; font-weight: 600; }
+  .stat .val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .val small { font-size: 12px; font-weight: 500; color: #8B98A5; margin-left: 2px; }
+  .stat.alert .val { color: #F85149; }
+  .card { background: #111820; border: 1px solid #1F2A35; border-radius: 10px; overflow-x: auto; }
+  .card .empty { padding: 14px 16px; color: #66737F; font-size: 12.5px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: 0.08em; color: #8B98A5; font-weight: 600;
+    padding: 9px 12px; border-bottom: 1px solid #1F2A35; background: #0E141B; white-space: nowrap;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid #18212C; vertical-align: top; font-variant-numeric: tabular-nums; }
+  td.mono { white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #141D28; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    padding: 2px 9px; border-radius: 4px; white-space: nowrap;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .status-success { color: #3FB950; background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.35); }
+  .status-error { color: #F85149; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.35); }
+  .err-note { font-size: 11px; color: #F85149; margin-top: 4px; max-width: 420px; word-break: break-all; }
+  .btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 15px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+  .btn-primary { background: #1F6FEB; color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; }
+  .btn-secondary { background: transparent; color: #38BDF8; border-color: rgba(56,189,248,0.45); }
+  .run-row { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; }
+  .briefing-block {
+    font-size: 14px; line-height: 1.7; border: 1px solid #1F2A35; border-radius: 8px;
+    padding: 16px 20px; background: #111820;
+  }
+  .briefing-block .title { font-weight: 600; }
+  pre { background: #0E141B; border: 1px solid #1F2A35; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 11.5px; line-height: 1.5; max-height: 26em; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">AI 秘書<small>ADMIN CONSOLE</small></div>
+    <nav><a href="/admin" class="active">ダッシュボード</a></nav>
+    <div class="foot">
+      共有シークレット
+      <input type="password" id="secret" placeholder="API_SHARED_SECRET">
+      <button class="btn btn-secondary" id="saveBtn">保存して読み込み</button>
+      <div id="authMsg" class="err-note"></div>
+      <div style="margin-top:12px">America/Los_Angeles</div>
+    </div>
+  </aside>
+  <main>
+    <h1>ダッシュボード</h1>
+    <p class="page-sub" id="pageSub">未読み込み — 左下に共有シークレットを入力してください</p>
+
+    <div class="stats">
+      <div class="stat"><div class="lbl">最新ブリーフィング</div><div class="val" id="statDate">-</div></div>
+      <div class="stat"><div class="lbl">PUSH</div><div class="val" id="statPush">-</div></div>
+      <div class="stat"><div class="lbl">登録デバイス</div><div class="val" id="statDevices">-<small>台</small></div></div>
+      <div class="stat" id="statJobBox"><div class="lbl">前回ジョブ</div><div class="val" id="statJob">-</div></div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn btn-primary" id="runBtn">▶ ブリーフィングを今すぐ実行</button>
+      <span class="dim" id="jobMsg"></span>
+    </div>
+
+    <h2>最新ブリーフィング</h2>
+    <div class="briefing-block" id="briefing"><span class="faint">（なし）</span></div>
+
+    <h2>直近の push</h2>
+    <div class="card" id="pushLogs"><div class="empty">（なし）</div></div>
+
+    <h2>直近のコレクタ実行</h2>
+    <div class="card" id="collectorRuns"><div class="empty">（なし）</div></div>
+
+    <h2>登録デバイス</h2>
+    <div class="card" id="devices"><div class="empty">（なし）</div></div>
+
+    <h2>最新ログ <span class="faint mono" id="logName"></span></h2>
+    <pre id="logTail">（なし）</pre>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let pollTimer = null;
+
+function secret() { return localStorage.getItem('adminSecret') || ''; }
+
+// DB のタイムスタンプは UTC。esl の管理画面と同じくシアトル時刻で表示する
+const seattleFmt = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'America/Los_Angeles',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+});
+function seattle(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.includes('T') ? ts : ts.replace(' ', 'T') + 'Z');
+  return Number.isNaN(d.getTime()) ? ts : seattleFmt.format(d);
+}
+
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + secret(), ...(opts.headers || {}) },
+  });
+  if (res.status === 401) throw new Error('認証エラー: 共有シークレットを確認してください');
+  if (!res.ok && res.status !== 202) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function pill(status) {
+  const ok = status === 'ok' || status === 'sent';
+  return `<span class="pill ${ok ? 'status-success' : 'status-error'}">${ok ? '✓' : '✗'} ${esc(status)}</span>`;
+}
+
+function renderTable(el, rows, cols, render) {
+  if (!rows || rows.length === 0) {
+    el.innerHTML = '<div class="empty">（なし）</div>';
+    return;
+  }
+  const head = cols.map((c) => `<th>${c}</th>`).join('');
+  const body = rows.map((r) => `<tr>${render(r)}</tr>`).join('');
+  el.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function refresh() {
+  $('authMsg').textContent = '';
+  let s;
+  try {
+    s = await api('/admin/status');
+  } catch (e) {
+    $('authMsg').textContent = e.message;
+    return;
+  }
+  $('pageSub').textContent = `最終更新 ${seattle(s.now)}（シアトル時刻）`;
+
+  const b = s.briefing;
+  $('statDate').textContent = b ? b.date : '未生成';
+  $('statPush').textContent = b ? (b.pushedAt ? '済' : '未') : '-';
+  $('statDevices').innerHTML = `${s.devices.length}<small>台</small>`;
+  const last = s.job.last;
+  $('statJob').textContent = s.job.running ? '実行中' : last ? `exit=${last.exitCode}` : '-';
+  $('statJobBox').classList.toggle('alert', !!last && last.exitCode !== 0 && !s.job.running);
+
+  $('briefing').innerHTML = b
+    ? `<div class="title">${esc(b.title)}</div>
+       <div>${esc(b.summary)}</div>
+       <div class="dim" style="margin-top:8px; font-size:12px">
+         生成 ${seattle(b.createdAt)} / push ${b.pushedAt ? seattle(b.pushedAt) : '未'}
+       </div>`
+    : '<span class="faint">まだブリーフィングがありません</span>';
+
+  renderTable($('pushLogs'), s.pushLogs, ['日時', 'デバイス', '状態', 'APNS-ID'], (r) => `
+    <td class="mono dim">${seattle(r.created_at)}</td>
+    <td class="mono">${esc(r.device)}</td>
+    <td>${pill(r.status)}${r.error ? `<div class="err-note">${esc(r.error)}</div>` : ''}</td>
+    <td class="mono dim">${esc(r.apns_id ?? '')}</td>`);
+
+  renderTable($('collectorRuns'), s.collectorRuns, ['日時', 'ソース', '状態'], (r) => `
+    <td class="mono dim">${seattle(r.created_at)}</td>
+    <td class="mono">${esc(r.source)}</td>
+    <td>${pill(r.status)}${r.error ? `<div class="err-note">${esc(r.error)}</div>` : ''}</td>`);
+
+  renderTable($('devices'), s.devices, ['ID', 'トークン', 'プラットフォーム', '更新'], (r) => `
+    <td class="mono dim">#${r.id}</td>
+    <td class="mono">${esc(r.token)}</td>
+    <td>${esc(r.platform)}</td>
+    <td class="mono dim">${seattle(r.updatedAt)}</td>`);
+
+  $('logName').textContent = s.log ? s.log.file : '';
+  $('logTail').textContent = s.log ? s.log.tail : '（なし）';
+
+  if (s.job.running) {
+    $('runBtn').disabled = true;
+    $('jobMsg').textContent = `実行中… (開始 ${seattle(s.job.running.startedAt)})`;
+    if (!pollTimer) pollTimer = setInterval(refresh, 3000);
+  } else {
+    $('runBtn').disabled = false;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    $('jobMsg').textContent = last ? `前回: exit=${last.exitCode} (${seattle(last.endedAt)})` : '';
+  }
+}
+
+$('saveBtn').onclick = () => {
+  localStorage.setItem('adminSecret', $('secret').value.trim());
+  refresh();
+};
+
+$('runBtn').onclick = async () => {
+  try {
+    await api('/admin/run-briefing', { method: 'POST' });
+    $('jobMsg').textContent = '起動しました…';
+    setTimeout(refresh, 1000);
+  } catch (e) {
+    $('jobMsg').textContent = e.message;
+  }
+};
+
+$('secret').value = secret();
+if (secret()) refresh();
+</script>
+</body>
+</html>

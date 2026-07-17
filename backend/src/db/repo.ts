@@ -70,6 +70,43 @@ export function insertPushLog(log: {
     .run(log.briefingId, log.deviceId, log.status, log.apnsId ?? null, log.error ?? null);
 }
 
+/** 直近のコレクタ実行結果（管理画面用。raw_json は重いので返さない）。 */
+export function recentCollectorRuns(limit = 10): Array<{
+  id: number;
+  briefing_date: string;
+  source: string;
+  status: string;
+  error: string | null;
+  created_at: string;
+}> {
+  return getDb()
+    .prepare(
+      `SELECT id, briefing_date, source, status, error, created_at
+       FROM collector_runs ORDER BY id DESC LIMIT ?`,
+    )
+    .all(limit) as ReturnType<typeof recentCollectorRuns>;
+}
+
+/** 直近の push 送信結果（管理画面用。デバイストークンはマスクして返す）。 */
+export function recentPushLogs(limit = 10): Array<{
+  id: number;
+  briefing_id: number;
+  device: string;
+  status: string;
+  apns_id: string | null;
+  error: string | null;
+  created_at: string;
+}> {
+  return getDb()
+    .prepare(
+      `SELECT p.id, p.briefing_id, substr(d.token, 1, 8) || '…' AS device,
+              p.status, p.apns_id, p.error, p.created_at
+       FROM push_log p JOIN devices d ON d.id = p.device_id
+       ORDER BY p.id DESC LIMIT ?`,
+    )
+    .all(limit) as ReturnType<typeof recentPushLogs>;
+}
+
 /** コレクタ実行結果を記録する（デバッグ・再生成用）。 */
 export function insertCollectorRun(run: {
   briefingDate: string;
