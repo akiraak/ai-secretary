@@ -1,5 +1,5 @@
 // ブリーフィングの構造化データ型。
-// iOS 画面（締切 → 今日やる → 要対応 → 昨日の GitHub）と 1:1 で対応させる。
+// iOS 画面（締切 → GitHub(TODO サマリー) → 要対応 → 昨日の GitHub）と 1:1 で対応させる。
 // 参照: docs/specs/ios-app-screens.md
 
 export type Priority = 'action' | 'info';
@@ -20,7 +20,7 @@ export interface DeadlineItem {
   changed?: 'new' | 'updated';
 }
 
-/** リポジトリ TODO.md から抽出した「今日やる／次の作業」 */
+/** 各リポジトリの TODO.md から抽出した未完了タスク */
 export interface TodoItem {
   repo: string;
   text: string;
@@ -107,6 +107,8 @@ export interface BriefingPayload {
   /** 前回ブリーフィング以降のカレンダー変更。旧 payload には無い */
   calendarChanges?: CalendarChange[];
   todos: TodoItem[];
+  /** TODO.md の LLM サマリー（HOME「GitHub」セクション用）。旧 payload・生成失敗時には無い */
+  todoSummary?: string;
   mails: MailItem[];
   github: GithubItem[];
 }

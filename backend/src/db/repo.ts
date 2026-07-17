@@ -162,6 +162,26 @@ export function cleanupDeadlineCompletions(cutoffDate: string): number {
   return result.changes;
 }
 
+/** TODO サマリーのキャッシュを引く。無ければ undefined。 */
+export function getTodoSummaryCache(hash: string): string | undefined {
+  const row = getDb()
+    .prepare('SELECT summary FROM todo_summary_cache WHERE hash = ?')
+    .get(hash) as { summary: string } | undefined;
+  return row?.summary;
+}
+
+/** TODO サマリーをキャッシュに保存し、30 日超の古い行を掃除する。 */
+export function saveTodoSummaryCache(hash: string, summary: string): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO todo_summary_cache (hash, summary) VALUES (?, ?)
+     ON CONFLICT(hash) DO UPDATE SET
+       summary = excluded.summary,
+       created_at = datetime('now')`,
+  ).run(hash, summary);
+  db.prepare("DELETE FROM todo_summary_cache WHERE created_at < datetime('now', '-30 days')").run();
+}
+
 /** calendar_items の 1 行（変更検知用スナップショット） */
 export interface CalendarItemRow {
   key: string;

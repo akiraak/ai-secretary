@@ -4,17 +4,20 @@ import { config } from '../config.js';
 import { closeDb } from '../db/index.js';
 import {
   cleanupDeadlineCompletions,
+  getTodoSummaryCache,
   insertBriefing,
   insertCollectorRun,
   insertLlmUsage,
   listCompletedDeadlineUids,
+  saveTodoSummaryCache,
 } from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
 import { annotateChanges, detectCalendarChanges } from './calendarDiff.js';
 import { generateBriefing } from '../llm/briefing.js';
+import { generateTodoSummary, hashTodos } from '../llm/todoSummary.js';
 import { pushBriefingToDevices } from '../push/briefingPush.js';
 import { briefingDate } from '../util/time.js';
-import type { CollectedInput, DeadlineItem } from '../types.js';
+import type { CollectedInput, DeadlineItem, TodoItem } from '../types.js';
 
 /** 完了行を掃除するまでの日数（フィードは過去の課題を含み続けるため期日基準で消す） */
 const COMPLETION_RETENTION_DAYS = 60;
@@ -31,6 +34,36 @@ export function applyDeadlineCompletions(
     d.uid && completedUids.has(d.uid) ? { ...d, completed: true } : d,
   );
   return { annotated, active: annotated.filter((d) => !d.completed) };
+}
+
+/**
+ * TODO サマリーを取得する。TODO の内容が前回と同一ならキャッシュを返し LLM を呼ばない。
+ * 生成失敗はブリーフィング全体を止めず undefined を返す（iOS 側は件数表示にフォールバック）。
+ */
+export async function resolveTodoSummary(
+  todos: TodoItem[],
+  date: string,
+): Promise<string | undefined> {
+  if (todos.length === 0) return undefined;
+  const hash = hashTodos(todos);
+  const cached = getTodoSummaryCache(hash);
+  if (cached !== undefined) {
+    console.log('TODO サマリー: 前回から変更なし（キャッシュ使用・LLM 呼び出しなし）');
+    return cached;
+  }
+  try {
+    const { summary, usage } = await generateTodoSummary(todos);
+    insertLlmUsage({ briefingDate: date, purpose: 'todo_summary', ...usage });
+    saveTodoSummaryCache(hash, summary);
+    console.log(
+      `TODO サマリー生成: ${usage.model} 入力 ${usage.inputTokens} / 出力 ${usage.outputTokens} トークン` +
+        (usage.costUsd != null ? ` ($${usage.costUsd.toFixed(4)})` : ''),
+    );
+    return summary;
+  } catch (e) {
+    console.warn(`⚠ TODO サマリー生成に失敗しました（サマリーなしで続行）: ${(e as Error).message}`);
+    return undefined;
+  }
 }
 
 /**
@@ -114,8 +147,11 @@ async function main(): Promise<void> {
     console.log(`締切 ${annotated.length} 件中 ${annotated.length - active.length} 件は完了済み（LLM 入力から除外）`);
   }
 
+  const todoSummary = await resolveTodoSummary(input.todos, input.date);
+
   const briefing = await generateBriefing({ ...input, deadlines: active });
   briefing.payload.deadlines = annotated;
+  briefing.payload.todoSummary = todoSummary;
   insertLlmUsage({ briefingDate: input.date, purpose: 'briefing', ...briefing.usage });
   console.log(
     `LLM: ${briefing.usage.model} 入力 ${briefing.usage.inputTokens} / 出力 ${briefing.usage.outputTokens} トークン` +

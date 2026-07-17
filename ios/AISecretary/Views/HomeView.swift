@@ -1,17 +1,12 @@
 // HOME = 案A 統合フィード。LLM 要約カード + 緊急順セクション
-// （締切が近い → 今日やる → 要対応 → 昨日の GitHub → 次の作業）を 1 画面スクロール。
+// （締切が近い → GitHub(TODO サマリー) → 要対応 → 昨日の GitHub）を 1 画面スクロール。
 // 参照: docs/specs/ios-app-screens.md「3. 今日のブリーフィング」
 import SwiftUI
 
-/// HOME「今日やる」に選抜する TODO の件数（残りは「次の作業」に折りたたむ）
-private let todayTodoCount = 5
-
 struct HomeView: View {
     @Environment(AppState.self) private var state
-    // 済チェックは v1 では画面内のみ（元 TODO.md / Gmail への書き戻しは後フェーズ）
-    @State private var doneTodos: Set<String> = []
+    // 済チェックは v1 では画面内のみ（Gmail への書き戻しは後フェーズ）
     @State private var doneMails: Set<String> = []
-    @State private var showNextTodos = false
 
     var body: some View {
         NavigationStack {
@@ -98,8 +93,6 @@ struct HomeView: View {
 
     @ViewBuilder
     private func sections(_ payload: BriefingPayload) -> some View {
-        let todayTodos = Array(payload.todos.prefix(todayTodoCount))
-        let nextTodos = Array(payload.todos.dropFirst(todayTodoCount))
         let actionMails = payload.mails.filter { $0.priority == "action" }
         let infoMails = payload.mails.filter { $0.priority != "action" }
 
@@ -121,13 +114,16 @@ struct HomeView: View {
             }
         }
 
-        SectionCard(title: "今日やる", linkTab: .github) {
-            if todayTodos.isEmpty {
+        SectionCard(title: "GitHub", linkTab: .github) {
+            if let summary = payload.todoSummary, !summary.isEmpty {
+                Text(summary)
+                    .font(.subheadline)
+                    .lineSpacing(3)
+            } else if payload.todos.isEmpty {
                 EmptyRow(message: "TODO は登録されていません")
             } else {
-                ForEach(todayTodos.indices, id: \.self) { i in
-                    todoRow(todayTodos[i])
-                }
+                // 旧 payload / サマリー生成失敗時はリポジトリ別件数にフォールバック
+                todoCountFallback(payload.todos)
             }
         }
 
@@ -152,23 +148,6 @@ struct HomeView: View {
                 EmptyRow(message: "昨日の活動はありません")
             } else {
                 githubSummary(payload.github)
-            }
-        }
-
-        if !nextTodos.isEmpty {
-            SectionCard(title: "次の作業") {
-                DisclosureGroup(isExpanded: $showNextTodos) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(nextTodos.indices, id: \.self) { i in
-                            todoRow(nextTodos[i])
-                        }
-                    }
-                    .padding(.top, 8)
-                } label: {
-                    Text("残り \(nextTodos.count) 件")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
             }
         }
     }
@@ -203,25 +182,18 @@ struct HomeView: View {
         }
     }
 
-    private func todoRow(_ item: TodoItem) -> some View {
-        let key = "\(item.repo)|\(item.text)"
-        let done = doneTodos.contains(key)
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Button {
-                if done { doneTodos.remove(key) } else { doneTodos.insert(key) }
-            } label: {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(done ? Color.doneGreen : Color.secondary)
+    /// サマリーが無い（旧 payload / 生成失敗）ときのリポジトリ別 TODO 件数表示
+    private func todoCountFallback(_ todos: [TodoItem]) -> some View {
+        let byRepo = Dictionary(grouping: todos, by: \.repo)
+        return VStack(alignment: .leading, spacing: 8) {
+            ForEach(byRepo.keys.sorted(), id: \.self) { repo in
+                HStack(spacing: 8) {
+                    RepoTag(repo: repo)
+                    Text("\(byRepo[repo]?.count ?? 0) 件")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
-            .buttonStyle(.plain)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.text)
-                    .font(.subheadline)
-                    .strikethrough(done)
-                    .foregroundStyle(done ? .secondary : .primary)
-                RepoTag(repo: item.repo)
-            }
-            Spacer()
         }
     }
 

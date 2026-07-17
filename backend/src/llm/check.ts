@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { briefingDate } from '../util/time.js';
 import { collectAll } from '../collectors/all.js';
 import { generateBriefing } from './briefing.js';
+import { generateTodoSummary } from './todoSummary.js';
 import type { CollectedInput } from '../types.js';
 
 /** トリアージ 4 区分（要対応/参考/無視/除外）を網羅するサンプル入力。 */
@@ -132,6 +133,16 @@ async function main(): Promise<void> {
     console.log(`  ${m.priority === 'action' ? '🔴 要対応' : '🔵 参考  '} ${m.subject}`);
     console.log(`           ${m.from} — ${m.reason}`);
   }
+  // HOME「GitHub」セクション用の TODO サマリー（キャッシュ判定は runBriefing 側なのでここでは生成のみ）
+  if (input.todos.length > 0) {
+    const ts = await generateTodoSummary(input.todos);
+    console.log(
+      `\n【TODO サマリー】(${ts.usage.model} 入力 ${ts.usage.inputTokens} / 出力 ${ts.usage.outputTokens} トークン` +
+        (ts.usage.costUsd != null ? ` = $${ts.usage.costUsd.toFixed(4)}` : '') +
+        `)\n${ts.summary}`,
+    );
+  }
+
   console.log('\n【payload JSON】');
   console.log(JSON.stringify(briefing.payload, null, 2));
 }

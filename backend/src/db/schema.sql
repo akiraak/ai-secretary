@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS briefings (
   lang          TEXT NOT NULL DEFAULT 'ja',
   title         TEXT,                          -- 通知タイトル
   summary       TEXT,                          -- 通知本文（短文）
-  payload_json  TEXT NOT NULL,                 -- 構造化ブリーフィング（締切/今日やる/要対応/GitHub）
+  payload_json  TEXT NOT NULL,                 -- 構造化ブリーフィング（締切/TODO サマリー/要対応/GitHub）
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   pushed_at     TEXT
 );
@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS calendar_items (
   start_at    TEXT NOT NULL,      -- 開始(期日)。窓スクロールアウトの誤「削除」判定を防ぐ基準
   title       TEXT NOT NULL,      -- 変更メッセージ表示用スナップショット
   last_seen   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- TODO サマリーのキャッシュ（hash = TODO 内容 + プロンプト版数 + モデル ID の sha256）。
+-- TODO.md が前回と同一なら LLM を呼ばず summary を再利用する。古い行は保存時に掃除
+CREATE TABLE IF NOT EXISTS todo_summary_cache (
+  hash       TEXT PRIMARY KEY,
+  summary    TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS schema_meta (

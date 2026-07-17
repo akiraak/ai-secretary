@@ -10,7 +10,7 @@ import { config } from '../config.js';
 import { GhHttpError, ghApiRaw, listAccessibleRepos, resolveToken } from './github.js';
 import type { TodoItem } from '../types.js';
 
-// 1 リポジトリから拾う上限。ブリーフィングは「今日やる/次の作業」が分かれば十分
+// 1 リポジトリから拾う上限。ブリーフィングは直近の作業が分かれば十分
 const MAX_ITEMS_PER_REPO = 10;
 // `*` 展開で対象が ~100 になるため contents 取得は並列で行う
 const FETCH_CONCURRENCY = 8;

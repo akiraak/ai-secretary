@@ -92,7 +92,7 @@ function isRetryable(e: unknown): boolean {
   return false;
 }
 
-async function createMessageWithRetry(
+export async function createMessageWithRetry(
   client: Anthropic,
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
@@ -188,7 +188,7 @@ export function buildUserPrompt(input: CollectedInput): string {
     lines.push(`- [${kindLabel[c.kind]}] ${c.title}${c.detail ? `（${c.detail}）` : ''}`);
   }
 
-  lines.push('', `## 今日やる / 次の作業 (TODO ${input.todos.length}件)`);
+  lines.push('', `## TODO（各リポジトリの TODO.md） (${input.todos.length}件)`);
   for (const t of input.todos) {
     lines.push(`- ${t.repo}: ${t.text}`);
   }
