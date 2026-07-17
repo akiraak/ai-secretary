@@ -1,9 +1,9 @@
 # TODO
 
-- [ ] canvasのカレンダー情報から課題の完了状態を取得できるかチェック
-  - 手動で完了させ状態を保持する機能の検討
+- [ ] Canvas 課題の手動完了チェック機能（締切のチェックボックス + SQLite で状態保持） [plan](docs/plans/canvas-assignment-completion.md)
 - カレンダー機能強化
   - [ ] １ヶ月表示、１週間表示
+  - [ ] カレンダー変更の検知（前回ブリーフィング以降の追加/変更/削除を朝ブリーフィング + アプリで知らせる） [plan](docs/plans/calendar-change-detection.md)
 
 - [ ] Google Calender への予定を追加
 - [ ] kitchen-living のカレンダーを取得
