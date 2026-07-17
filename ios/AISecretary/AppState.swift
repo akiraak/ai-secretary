@@ -42,10 +42,21 @@ final class AppState {
     private let defaults = UserDefaults.standard
 
     init() {
-        backendURLString = defaults.string(forKey: "backendURL") ?? ""
-        sharedSecret = defaults.string(forKey: "sharedSecret") ?? ""
+        // Setting タブで未編集（保存値なし・空）の間は Info.plist の焼き込み値を既定にする。
+        // didSet は init では発火しないため保存されず、リビルドで新しい焼き込み値に追従する。
+        backendURLString = Self.storedOrBaked(defaults, key: "backendURL", infoKey: "BackendBaseURL")
+        sharedSecret = Self.storedOrBaked(defaults, key: "sharedSecret", infoKey: "BackendAPISecret")
         onboardingDone = defaults.bool(forKey: "onboardingDone")
         registeredToken = defaults.string(forKey: "registeredToken")
+    }
+
+    /// UserDefaults の保存値が空でなければそれを、なければビルド時に
+    /// Info.plist へ埋め込まれた値（run-ios-device.sh が注入）を返す
+    private static func storedOrBaked(_ defaults: UserDefaults, key: String, infoKey: String) -> String {
+        if let stored = defaults.string(forKey: key), !stored.isEmpty {
+            return stored
+        }
+        return (Bundle.main.object(forInfoDictionaryKey: infoKey) as? String) ?? ""
     }
 
     /// 接続設定が揃っていれば API クライアントを返す
