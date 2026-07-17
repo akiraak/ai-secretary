@@ -74,6 +74,37 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+// API 混雑（529 など）は数分続くことがあり、SDK 既定のリトライ（数秒間隔）では
+// 乗り切れない。毎朝の cron を一度の混雑で落とさないよう、間隔を空けて再試行する。
+const RETRY_WAITS_MS = [30_000, 60_000, 120_000];
+
+function isRetryable(e: unknown): boolean {
+  if (e instanceof Anthropic.APIConnectionError) return true;
+  if (e instanceof Anthropic.APIError) {
+    const status = Number(e.status);
+    return status === 429 || status >= 500;
+  }
+  return false;
+}
+
+async function createMessageWithRetry(
+  client: Anthropic,
+  params: Anthropic.MessageCreateParamsNonStreaming,
+): Promise<Anthropic.Message> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await client.messages.create(params);
+    } catch (e) {
+      if (!isRetryable(e) || attempt >= RETRY_WAITS_MS.length) throw e;
+      const waitMs = RETRY_WAITS_MS[attempt]!;
+      console.warn(
+        `LLM API エラーのため ${waitMs / 1000} 秒待って再試行します (${attempt + 1}/${RETRY_WAITS_MS.length}): ${(e as Error).message}`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
 /** 収集結果から日本語ブリーフィングを生成する。 */
 export async function generateBriefing(input: CollectedInput): Promise<GeneratedBriefing> {
   const { apiKey, model } = config.llm;
@@ -82,7 +113,7 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
   }
 
   const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
+  const response = await createMessageWithRetry(client, {
     model,
     max_tokens: 8192,
     system: SYSTEM_PROMPT,

@@ -20,3 +20,4 @@
 - [x] 2026-07-15 MVP 設定: Canvas iCal URL 投入 → `npm run collectors:check` で実フィードから今後 7 日の締切 4 件を取得確認
 - [x] 2026-07-16 iOS 実機ビルドスクリプト: `run-ios-device.sh`（Mac の LAN IP を接続先として自動注入・`--prod` で本番切替・`backend/.env` のシークレット注入。実機でデバイス登録 → APNs テスト通知到達までライブ検証） [plan](docs/plans/archive/ios-device-build-script.md)
 - [x] 2026-07-16 run-admin.sh: ローカルで管理画面付き API サーバを起動（ポート占有プロセスを停止 → 起動 → ブラウザで /admin を自動オープン。`/admin/`（末尾スラッシュ）も 200 になるようルート修正込み） [plan](docs/plans/archive/run-admin-script.md)
+- [x] 2026-07-16 管理画面: `GET /admin`（esl と同デザインの単一 HTML）+ `GET /admin/status` + `POST /admin/run-briefing` で、ブラウザからブリーフィング手動実行・状態確認（デバイス / push / コレクタ / ログ末尾）。g3plus 反映済みで SSH 運用を廃止。本番で実行 → 生成 → 実機 push `sent` まで確認 [plan](docs/plans/archive/admin-panel.md)
