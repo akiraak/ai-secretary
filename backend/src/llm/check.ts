@@ -107,7 +107,14 @@ async function main(): Promise<void> {
   console.log(`モデル: ${config.llm.model}`);
   const started = Date.now();
   const briefing = await generateBriefing(input);
-  console.log(`生成時間: ${((Date.now() - started) / 1000).toFixed(1)}s\n`);
+  console.log(`生成時間: ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  const u = briefing.usage;
+  console.log(
+    `usage: ${u.model} 入力 ${u.inputTokens} / 出力 ${u.outputTokens}` +
+      ` / キャッシュ書込 ${u.cacheCreationInputTokens} / 読取 ${u.cacheReadInputTokens} トークン` +
+      (u.costUsd != null ? ` = $${u.costUsd.toFixed(4)}` : ' (単価不明)') +
+      '\n',
+  );
 
   console.log(`【title】\n${briefing.title}\n`);
   console.log(`【summary】\n${briefing.summary}\n`);

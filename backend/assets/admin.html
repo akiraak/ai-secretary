@@ -80,7 +80,10 @@
 <div class="layout">
   <aside class="sidebar">
     <div class="brand">AI 秘書<small>ADMIN CONSOLE</small></div>
-    <nav><a href="/admin" class="active">ダッシュボード</a></nav>
+    <nav>
+      <a href="#" class="active" data-page="dashboard">ダッシュボード</a>
+      <a href="#" data-page="ai">AI 利用状況</a>
+    </nav>
     <div class="foot">
       共有シークレット
       <input type="password" id="secret" placeholder="API_SHARED_SECRET">
@@ -90,6 +93,7 @@
     </div>
   </aside>
   <main>
+    <section id="page-dashboard">
     <h1>ダッシュボード</h1>
     <p class="page-sub" id="pageSub">未読み込み — 左下に共有シークレットを入力してください</p>
 
@@ -97,6 +101,7 @@
       <div class="stat"><div class="lbl">最新ブリーフィング</div><div class="val" id="statDate">-</div></div>
       <div class="stat"><div class="lbl">PUSH</div><div class="val" id="statPush">-</div></div>
       <div class="stat"><div class="lbl">登録デバイス</div><div class="val" id="statDevices">-<small>台</small></div></div>
+      <div class="stat"><div class="lbl">AI 料金 (今月)</div><div class="val" id="statAiCost">-</div></div>
       <div class="stat" id="statJobBox"><div class="lbl">前回ジョブ</div><div class="val" id="statJob">-</div></div>
     </div>
 
@@ -127,6 +132,25 @@
 
     <h2>最新ログ <span class="faint mono" id="logName"></span></h2>
     <pre id="logTail">（なし）</pre>
+    </section>
+
+    <section id="page-ai" hidden>
+    <h1>AI 利用状況</h1>
+    <p class="page-sub" id="aiSub">未読み込み</p>
+
+    <div class="stats">
+      <div class="stat"><div class="lbl">今月の料金</div><div class="val" id="aiMonthCost">-</div></div>
+      <div class="stat"><div class="lbl">今月の呼び出し</div><div class="val" id="aiMonthCalls">-<small>回</small></div></div>
+      <div class="stat"><div class="lbl">累計料金</div><div class="val" id="aiTotalCost">-</div></div>
+      <div class="stat"><div class="lbl">設定モデル</div><div class="val" id="aiModel" style="font-size:14px; line-height:2">-</div></div>
+    </div>
+
+    <h2>月別集計 <span class="faint">(月区切りは UTC)</span></h2>
+    <div class="card" id="aiMonthly"><div class="empty">（なし）</div></div>
+
+    <h2>直近の呼び出し</h2>
+    <div class="card" id="aiRecent"><div class="empty">（なし）</div></div>
+    </section>
   </main>
 </div>
 
@@ -163,6 +187,15 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// 料金は $1 未満が普通なので小数 4 桁、$1 以上は 2 桁で表示する
+function usd(v) {
+  return v == null ? '—' : '$' + Number(v).toFixed(v >= 1 ? 2 : 4);
+}
+
+function num(v) {
+  return v == null ? '' : Number(v).toLocaleString('en-US');
+}
+
 function pill(status) {
   const ok = status === 'ok' || status === 'sent';
   return `<span class="pill ${ok ? 'status-success' : 'status-error'}">${ok ? '✓' : '✗'} ${esc(status)}</span>`;
@@ -193,6 +226,7 @@ async function refresh() {
   $('statDate').textContent = b ? b.date : '未生成';
   $('statPush').textContent = b ? (b.pushedAt ? '済' : '未') : '-';
   $('statDevices').innerHTML = `${s.devices.length}<small>台</small>`;
+  $('statAiCost').textContent = usd(s.aiUsage.monthCostUsd);
   const last = s.job.last;
   $('statJob').textContent = s.job.running ? '実行中' : last ? `exit=${last.exitCode}` : '-';
   $('statJobBox').classList.toggle('alert', !!last && last.exitCode !== 0 && !s.job.running);
@@ -235,6 +269,65 @@ async function refresh() {
     $('jobMsg').textContent = last ? `前回: exit=${last.exitCode} (${seattle(last.endedAt)})` : '';
   }
 }
+
+// AI 利用状況タブ（GET /admin/ai-usage）
+async function refreshAi() {
+  $('aiSub').textContent = '読み込み中…';
+  let d;
+  try {
+    d = await api('/admin/ai-usage');
+  } catch (e) {
+    $('aiSub').textContent = e.message;
+    return;
+  }
+  $('aiSub').textContent = `最終更新 ${seattle(new Date().toISOString())}（シアトル時刻）`;
+
+  const sum = d.summary;
+  $('aiMonthCost').textContent = usd(sum.monthCostUsd);
+  $('aiMonthCalls').innerHTML = `${sum.monthCalls}<small>回</small>`;
+  $('aiTotalCost').textContent = usd(sum.totalCostUsd);
+  $('aiModel').textContent = d.configuredModel;
+
+  renderTable($('aiMonthly'), d.monthly,
+    ['月', '回数', '入力', '出力', 'キャッシュ書込', 'キャッシュ読取', '料金'], (r) => `
+    <td class="mono">${esc(r.month)}</td>
+    <td>${num(r.calls)}</td>
+    <td class="mono">${num(r.input_tokens)}</td>
+    <td class="mono">${num(r.output_tokens)}</td>
+    <td class="mono dim">${num(r.cache_creation_input_tokens)}</td>
+    <td class="mono dim">${num(r.cache_read_input_tokens)}</td>
+    <td class="mono">${usd(r.cost_usd)}</td>`);
+
+  renderTable($('aiRecent'), d.recent,
+    ['日時', '種別', 'モデル', '入力', '出力', 'キャッシュ書/読', '料金'], (r) => `
+    <td class="mono dim">${seattle(r.created_at)}</td>
+    <td>${esc(r.purpose)}${r.briefing_date ? `<div class="faint" style="font-size:11px">${esc(r.briefing_date)}</div>` : ''}</td>
+    <td class="mono">${esc(r.model)}</td>
+    <td class="mono">${num(r.input_tokens)}</td>
+    <td class="mono">${num(r.output_tokens)}</td>
+    <td class="mono dim">${num(r.cache_creation_input_tokens)} / ${num(r.cache_read_input_tokens)}</td>
+    <td class="mono">${usd(r.cost_usd)}</td>`);
+}
+
+// サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
+let currentPage = 'dashboard';
+
+function showPage(page) {
+  currentPage = page;
+  $('page-dashboard').hidden = page !== 'dashboard';
+  $('page-ai').hidden = page !== 'ai';
+  document.querySelectorAll('.sidebar nav a').forEach((a) => {
+    a.classList.toggle('active', a.dataset.page === page);
+  });
+  if (page === 'ai' && secret()) refreshAi();
+}
+
+document.querySelectorAll('.sidebar nav a').forEach((a) => {
+  a.onclick = (e) => {
+    e.preventDefault();
+    showPage(a.dataset.page);
+  };
+});
 
 // 収集カレンダー: Google API を叩くので自動 refresh には含めず、明示操作で読み込む
 let calendars = null;
@@ -289,6 +382,7 @@ $('calSaveBtn').onclick = async () => {
 $('saveBtn').onclick = () => {
   localStorage.setItem('adminSecret', $('secret').value.trim());
   refresh();
+  if (currentPage === 'ai') refreshAi();
 };
 
 $('runBtn').onclick = async () => {

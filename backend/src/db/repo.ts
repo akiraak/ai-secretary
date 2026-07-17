@@ -127,6 +127,105 @@ export function setSetting(key: string, value: string): void {
     .run(key, value);
 }
 
+/** LLM API 呼び出しの usage を記録する。 */
+export function insertLlmUsage(row: {
+  briefingDate?: string;
+  purpose: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  costUsd: number | null;
+}): void {
+  getDb()
+    .prepare(
+      `INSERT INTO llm_usage (briefing_date, purpose, model, input_tokens, output_tokens,
+                              cache_creation_input_tokens, cache_read_input_tokens, cost_usd)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      row.briefingDate ?? null,
+      row.purpose,
+      row.model,
+      row.inputTokens,
+      row.outputTokens,
+      row.cacheCreationInputTokens,
+      row.cacheReadInputTokens,
+      row.costUsd,
+    );
+}
+
+/** AI 利用状況のサマリ（今月・累計。月区切りは UTC）。 */
+export function llmUsageSummary(): {
+  monthCalls: number;
+  monthCostUsd: number;
+  totalCalls: number;
+  totalCostUsd: number;
+  models: string[];
+} {
+  const db = getDb();
+  const month = db
+    .prepare(
+      `SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost
+       FROM llm_usage WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`,
+    )
+    .get() as { calls: number; cost: number };
+  const total = db
+    .prepare(`SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost FROM llm_usage`)
+    .get() as { calls: number; cost: number };
+  const models = db
+    .prepare(`SELECT DISTINCT model FROM llm_usage ORDER BY model`)
+    .all() as { model: string }[];
+  return {
+    monthCalls: month.calls,
+    monthCostUsd: month.cost,
+    totalCalls: total.calls,
+    totalCostUsd: total.cost,
+    models: models.map((m) => m.model),
+  };
+}
+
+/** 月別の AI 利用集計（新しい月から最大 limit ヶ月。月区切りは UTC）。 */
+export function monthlyLlmUsage(limit = 12): Array<{
+  month: string;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  cost_usd: number;
+}> {
+  return getDb()
+    .prepare(
+      `SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS calls,
+              SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens,
+              SUM(cache_creation_input_tokens) AS cache_creation_input_tokens,
+              SUM(cache_read_input_tokens) AS cache_read_input_tokens,
+              COALESCE(SUM(cost_usd), 0) AS cost_usd
+       FROM llm_usage GROUP BY month ORDER BY month DESC LIMIT ?`,
+    )
+    .all(limit) as ReturnType<typeof monthlyLlmUsage>;
+}
+
+/** 直近の AI 呼び出し履歴（管理画面用）。 */
+export function recentLlmUsage(limit = 20): Array<{
+  id: number;
+  briefing_date: string | null;
+  purpose: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  cost_usd: number | null;
+  created_at: string;
+}> {
+  return getDb()
+    .prepare(`SELECT * FROM llm_usage ORDER BY id DESC LIMIT ?`)
+    .all(limit) as ReturnType<typeof recentLlmUsage>;
+}
+
 /** コレクタ実行結果を記録する（デバッグ・再生成用）。 */
 export function insertCollectorRun(run: {
   briefingDate: string;

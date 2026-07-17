@@ -5,6 +5,7 @@
 //   （ハルシネーションでメタデータが化けるのを防ぐ）
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
+import { usageFromResponse, type LlmUsage } from './pricing.js';
 import type { BriefingPayload, CollectedInput, MailItem } from '../types.js';
 
 export interface GeneratedBriefing {
@@ -14,6 +15,8 @@ export interface GeneratedBriefing {
   summary: string;
   /** briefings.payload_json に保存する構造化データ */
   payload: BriefingPayload;
+  /** API 呼び出しのトークン数とコスト（llm_usage への保存は呼び出し側が行う） */
+  usage: LlmUsage;
 }
 
 /** LLM が返すメールトリアージ 1 件（index は mailCandidates の添字） */
@@ -134,6 +137,7 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
   return {
     title: output.title,
     summary: output.summary,
+    usage: usageFromResponse(response),
     payload: {
       date: input.date,
       lang: config.briefing.lang,

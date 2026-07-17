@@ -4,6 +4,7 @@
 //   GET  /briefings/latest    — 最新ブリーフィング JSON（アプリのプル元）
 //   GET  /admin               — 管理画面（静的 HTML。`ADMIN_ENABLED=on` のときのみ）
 //   GET  /admin/status        — 管理用の状態スナップショット
+//   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
 // /admin* は ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。本番は前段の
 // Cloudflare Access で /admin を保護してから有効化する。
@@ -13,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT, config } from './config.js';
 import { latestBriefing, upsertDevice } from './db/repo.js';
-import { getStatus, listCalendars, runBriefing, updateCalendars } from './admin.js';
+import { getAiUsage, getStatus, listCalendars, runBriefing, updateCalendars } from './admin.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_TOKEN_LENGTH = 512; // APNs トークンは hex 64 文字程度。異常値は弾く
@@ -184,6 +185,15 @@ export function createServer(secret: string): http.Server {
           return;
         }
         sendJson(res, 200, getStatus());
+        return;
+      }
+
+      if (path === '/admin/ai-usage') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        sendJson(res, 200, getAiUsage());
         return;
       }
 

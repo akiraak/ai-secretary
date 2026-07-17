@@ -6,7 +6,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT } from './config.js';
 import { calendarClient } from './auth/google.js';
-import { latestBriefing, listDevices, recentCollectorRuns, recentPushLogs } from './db/repo.js';
+import {
+  latestBriefing,
+  listDevices,
+  llmUsageSummary,
+  monthlyLlmUsage,
+  recentCollectorRuns,
+  recentLlmUsage,
+  recentPushLogs,
+} from './db/repo.js';
+import { config } from './config.js';
 import { resolveCalendarIds, saveCalendarIds } from './settings.js';
 
 const BRIEFING_SCRIPT = path.join(BACKEND_ROOT, 'scripts', 'cron-briefing.sh');
@@ -104,12 +113,24 @@ export function updateCalendars(ids: string[]): void {
   saveCalendarIds(ids);
 }
 
+/** AI 利用状況の詳細（GET /admin/ai-usage）。 */
+export function getAiUsage(): unknown {
+  return {
+    configuredModel: config.llm.model,
+    summary: llmUsageSummary(),
+    monthly: monthlyLlmUsage(12),
+    recent: recentLlmUsage(20),
+  };
+}
+
 /** 管理画面に出す状態のスナップショット（GET /admin/status）。 */
 export function getStatus(): unknown {
   const briefing = latestBriefing();
+  const usage = llmUsageSummary();
   return {
     now: new Date().toISOString(),
     job,
+    aiUsage: { monthCostUsd: usage.monthCostUsd, monthCalls: usage.monthCalls },
     briefing: briefing
       ? {
           id: briefing.id,

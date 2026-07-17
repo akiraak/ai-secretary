@@ -46,6 +46,21 @@ CREATE TABLE IF NOT EXISTS push_log (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- LLM API 呼び出しの usage 記録（管理画面の AI 利用状況表示用）
+CREATE TABLE IF NOT EXISTS llm_usage (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  briefing_date TEXT,                          -- 対象日（ブリーフィング生成の場合）
+  purpose       TEXT NOT NULL,                 -- briefing など呼び出し種別
+  model         TEXT NOT NULL,                 -- API が返した実モデル ID
+  input_tokens  INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_input_tokens     INTEGER NOT NULL DEFAULT 0,
+  cost_usd      REAL,                          -- 単価不明のモデルは NULL
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version    INTEGER NOT NULL,
   applied_at TEXT NOT NULL DEFAULT (datetime('now'))

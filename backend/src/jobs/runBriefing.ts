@@ -1,7 +1,7 @@
 // `npm run briefing` — 収集 → LLM 生成 → SQLite 保存 → APNs push を 1 回実行する（cron から呼ぶ本体）。
 import { pathToFileURL } from 'node:url';
 import { closeDb } from '../db/index.js';
-import { insertBriefing, insertCollectorRun } from '../db/repo.js';
+import { insertBriefing, insertCollectorRun, insertLlmUsage } from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
 import { generateBriefing } from '../llm/briefing.js';
 import { pushBriefingToDevices } from '../push/briefingPush.js';
@@ -60,6 +60,11 @@ async function main(): Promise<void> {
   }
 
   const briefing = await generateBriefing(input);
+  insertLlmUsage({ briefingDate: input.date, purpose: 'briefing', ...briefing.usage });
+  console.log(
+    `LLM: ${briefing.usage.model} 入力 ${briefing.usage.inputTokens} / 出力 ${briefing.usage.outputTokens} トークン` +
+      (briefing.usage.costUsd != null ? ` ($${briefing.usage.costUsd.toFixed(4)})` : ''),
+  );
   const payloadJson = JSON.stringify(briefing.payload);
   const id = insertBriefing({
     briefingDate: input.date,
