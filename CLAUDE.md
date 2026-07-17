@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## アーキテクチャ
 
-毎朝 07:00 PT に backend が「予定・締切・要対応メール・GitHub 活動」を収集 → LLM で日本語ブリーフィングに整形 → SQLite に保存 → APNs で iOS アプリへ push する。詳細は [docs/plans/mvp-morning-briefing.md](docs/plans/mvp-morning-briefing.md)。
+毎朝 07:00 PT に backend が「予定・締切・要対応メール・GitHub 活動」を収集 → LLM で日本語ブリーフィングに整形 → SQLite に保存 → APNs で iOS アプリへ push する。詳細は [docs/plans/archive/mvp-morning-briefing.md](docs/plans/archive/mvp-morning-briefing.md)。
 
 - `backend/` — TypeScript / Node（フレームワークなし、依存最小）。
   `src/collectors/`（Calendar / Gmail / Canvas iCal / GitHub / TODO.md）→ `src/llm/`（Claude Haiku 4.5 でトリアージ・整形）→ `src/db/`（better-sqlite3。SQL は `db/repo.ts` に集約）→ `src/push/`（APNs を node:crypto + node:http2 で自前実装）。

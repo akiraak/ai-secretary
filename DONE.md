@@ -30,3 +30,6 @@
 - [x] 2026-07-16 MVP: ブリーフィングを本番で手動実行 → 実機到達確認（管理画面 API `run-briefing` で生成 → push `sent`。23:45 PT、briefings.id=2。初回 2 回は Anthropic 529 で失敗 → LLM リトライを別タスクで対応）
 - [x] 2026-07-16 LLM 混雑リトライ実装: briefing.ts に createMessageWithRetry（typecheck + `llm:check -- --fixture` で実 API 成功を確認。コミット d12bb9d） [plan](docs/plans/archive/llm-retry.md)
 - [x] 2026-07-17 LLM 混雑リトライを g3plus に反映（コミット d12bb9d をデプロイ。07:00 PT の cron が混雑リトライ付きで動作する状態に） [plan](docs/plans/archive/llm-retry.md)
+- [x] 2026-07-17 MVP: 実機で手動実装確認（Setting「登録済み」+ 接続テスト ✓ / 通知到達 = 通知センター着信で確認（深夜はおやすみモードでバナー抑制されるだけ）/ HOME 統合フィード実データ / GitHub・Calendar タブ実データ / プルリフレッシュ。Calendar に Google 予定が出なかったのは期間内に予定ゼロで正常動作 — テスト予定を作成して表示まで確認）
+- [x] 2026-07-17 MVP: 07:00 PT の cron 自動配信を確認（07:00:15 PT に briefings.id=4 が自動生成・APNs 受理。混雑リトライ込みの構成で稼働）
+- [x] 2026-07-17 MVP: 朝ブリーフィングを iOS アプリに push — 完了（収集 → LLM 整形 → 保存 → APNs push の全パイプラインが g3plus 本番で毎朝 07:00 PT に自動稼働） [plan](docs/plans/archive/mvp-morning-briefing.md)

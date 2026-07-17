@@ -1,7 +1,7 @@
 # g3plus デプロイ手順（API サーバ常駐 + cron 07:00 PT）
 
 作成日: 2026-07-15
-親プラン: [MVP: 朝ブリーフィングを iOS アプリに push](../plans/mvp-morning-briefing.md)（Step 8）
+親プラン: [MVP: 朝ブリーフィングを iOS アプリに push](../plans/archive/mvp-morning-briefing.md)（Step 8）
 
 g3plus（Ubuntu）に backend を配置し、
 
