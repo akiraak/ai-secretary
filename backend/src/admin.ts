@@ -8,6 +8,8 @@ import { BACKEND_ROOT } from './config.js';
 import { calendarClient } from './auth/google.js';
 import {
   latestBriefing,
+  latestCollectorRunRaw,
+  listCompletedDeadlineUids,
   listDevices,
   llmUsageSummary,
   monthlyLlmUsage,
@@ -16,6 +18,7 @@ import {
   recentPushLogs,
 } from './db/repo.js';
 import { config } from './config.js';
+import type { DeadlineItem, EventItem } from './types.js';
 import { resolveCalendarIds, saveCalendarIds } from './settings.js';
 
 const BRIEFING_SCRIPT = path.join(BACKEND_ROOT, 'scripts', 'cron-briefing.sh');
@@ -111,6 +114,41 @@ export async function listCalendars(): Promise<AdminCalendar[]> {
 /** 収集対象カレンダーを保存する（PUT /admin/calendars）。 */
 export function updateCalendars(ids: string[]): void {
   saveCalendarIds(ids);
+}
+
+/** raw_json を安全にパースする（壊れていたら fallback）。 */
+function parseRawJson<T>(rawJson: string | null | undefined, fallback: T): T {
+  if (!rawJson) return fallback;
+  try {
+    return JSON.parse(rawJson) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * カレンダータブ用の集約（GET /admin/calendar-info）。
+ * 最新のコレクタ実行結果から組み立てる（ライブで Google/Canvas は叩かない。
+ * 鮮度は毎朝のブリーフィング実行に依存）。
+ */
+export function getCalendarInfo(): unknown {
+  const calRun = latestCollectorRunRaw('calendar');
+  const canvasRun = latestCollectorRunRaw('canvas');
+  const cal = parseRawJson<{ events?: EventItem[]; deadlines?: DeadlineItem[] }>(
+    calRun?.raw_json,
+    {},
+  );
+  const canvasDeadlines = parseRawJson<DeadlineItem[]>(canvasRun?.raw_json, []);
+
+  const completed = new Set(listCompletedDeadlineUids());
+  const deadlines = [...canvasDeadlines, ...(cal.deadlines ?? [])]
+    .map((d) => (d.uid && completed.has(d.uid) ? { ...d, completed: true } : d))
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+
+  return {
+    events: { collectedAt: calRun?.created_at ?? null, items: cal.events ?? [] },
+    deadlines: { collectedAt: canvasRun?.created_at ?? null, items: deadlines },
+  };
 }
 
 /** AI 利用状況の詳細（GET /admin/ai-usage）。 */

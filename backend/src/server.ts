@@ -7,6 +7,7 @@
 //   GET  /admin               — 管理画面（静的 HTML。`ADMIN_ENABLED=on` のときのみ）
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
+//   GET  /admin/calendar-info — カレンダータブ用（今日の予定 + 締切と完了状態）
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
 // /admin* は ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。本番は前段の
 // Cloudflare Access で /admin を保護してから有効化する。
@@ -23,7 +24,14 @@ import {
   uncompleteDeadline,
   upsertDevice,
 } from './db/repo.js';
-import { getAiUsage, getStatus, listCalendars, runBriefing, updateCalendars } from './admin.js';
+import {
+  getAiUsage,
+  getCalendarInfo,
+  getStatus,
+  listCalendars,
+  runBriefing,
+  updateCalendars,
+} from './admin.js';
 import type { BriefingPayload, DeadlineItem } from './types.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -304,6 +312,15 @@ export function createServer(secret: string): http.Server {
           return;
         }
         sendJson(res, 200, getAiUsage());
+        return;
+      }
+
+      if (path === '/admin/calendar-info') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        sendJson(res, 200, getCalendarInfo());
         return;
       }
 

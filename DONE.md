@@ -37,3 +37,5 @@
 - [x] 2026-07-17 AI利用状況を管理画面に表示: LLM 呼び出しの usage（モデル / トークン数 / 料金）を SQLite `llm_usage` に記録し、`/admin` ダッシュボードに「AI 料金 (今月)」カード + 専用「AI 利用状況」タブ（今月/累計コスト・月別集計・直近の呼び出し）を追加。GET `/admin/ai-usage` を新設し、一時 DB + curl と実 API（`llm:check --fixture` で $0.0027 の計算一致）でライブ検証 [plan](docs/plans/archive/admin-ai-usage.md)
 - [x] 2026-07-17 run-admin.sh で管理画面が 404 になる問題を修正（認証ゲート追加後 `ADMIN_ENABLED=on` が未設定だったため。ローカル用スクリプト側で既定 on に — 環境変数で上書き可。別ポートで /admin 200 をライブ検証）
 - [x] 2026-07-17 Canvas カレンダーから課題の完了状態を取得できるかチェック — **取得不可**（実フィードで確認: VEVENT に STATUS 等の完了系プロパティなし・提出済みでもフィードは変化しない。Canvas REST API なら取れるがトークン運用が必要 + in-class 課題は結局手動）。手動完了チェック機能の設計を作成し TODO を実装タスクに差し替え [plan](docs/plans/canvas-assignment-completion.md)
+- [x] 2026-07-17 Canvas 課題の手動完了チェック機能: 締切に ics UID を透過し SQLite `deadline_completions` で状態保持。iOS の HOME/Calendar 締切行にチェック UI（POST /deadlines/complete、完了は取り消し線 + 翌朝の通知文面から除外）。g3plus デプロイ + 実機で保持確認済み [plan](docs/plans/archive/canvas-assignment-completion.md)
+- [x] 2026-07-17 管理画面にカレンダータブを追加: 今日の予定 + 今後の締切（Canvas + Google カレンダーをマージ）を表示し、ブラウザからも完了チェックを操作可能に（GET /admin/calendar-info。一時 DB + curl でマージ・完了反映をライブ検証） [plan](docs/plans/archive/admin-calendar-tab.md)

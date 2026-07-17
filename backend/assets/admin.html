@@ -82,6 +82,7 @@
     <div class="brand">AI 秘書<small>ADMIN CONSOLE</small></div>
     <nav>
       <a href="#" class="active" data-page="dashboard">ダッシュボード</a>
+      <a href="#" data-page="calendar">カレンダー</a>
       <a href="#" data-page="ai">AI 利用状況</a>
     </nav>
     <div class="foot">
@@ -132,6 +133,18 @@
 
     <h2>最新ログ <span class="faint mono" id="logName"></span></h2>
     <pre id="logTail">（なし）</pre>
+    </section>
+
+    <section id="page-calendar" hidden>
+    <h1>カレンダー</h1>
+    <p class="page-sub" id="calInfoSub">未読み込み</p>
+
+    <h2>今日の予定 <span class="faint mono" id="calEventsAt"></span></h2>
+    <div class="card" id="calEvents"><div class="empty">（なし）</div></div>
+
+    <h2>今後の締切 <span class="faint mono" id="calDeadlinesAt"></span></h2>
+    <div class="card" id="calDeadlinesCard"><div class="empty">（なし）</div></div>
+    <p class="page-sub" style="margin-top:8px">チェック = 手動完了（Canvas 締切のみ。翌朝のブリーフィング通知から除外されます）</p>
     </section>
 
     <section id="page-ai" hidden>
@@ -270,6 +283,62 @@ async function refresh() {
   }
 }
 
+// カレンダータブ（GET /admin/calendar-info。完了チェックは POST /deadlines/complete）
+function dueText(s) {
+  return s.length === 10 && !s.includes('T') ? `${s} (終日)` : seattle(s);
+}
+
+function eventTime(e) {
+  if (e.startAt.length === 10 && !e.startAt.includes('T')) return '終日';
+  const hm = (ts) => seattle(ts).slice(11, 16);
+  return hm(e.startAt) + (e.endAt ? `–${hm(e.endAt)}` : '');
+}
+
+async function refreshCalendar() {
+  $('calInfoSub').textContent = '読み込み中…';
+  let d;
+  try {
+    d = await api('/admin/calendar-info');
+  } catch (e) {
+    $('calInfoSub').textContent = e.message;
+    return;
+  }
+  $('calInfoSub').textContent = '毎朝のブリーフィング実行時に収集したデータです（シアトル時刻）';
+  $('calEventsAt').textContent = d.events.collectedAt ? `収集 ${seattle(d.events.collectedAt)}` : '';
+  $('calDeadlinesAt').textContent = d.deadlines.collectedAt ? `収集 ${seattle(d.deadlines.collectedAt)}` : '';
+
+  renderTable($('calEvents'), d.events.items, ['時刻', '予定', '場所'], (e) => `
+    <td class="mono">${eventTime(e)}</td>
+    <td>${esc(e.title)}</td>
+    <td class="dim">${esc(e.location ?? '')}</td>`);
+
+  renderTable($('calDeadlinesCard'), d.deadlines.items, ['', '期日', '課題', 'コース', 'ソース'], (r) => `
+    <td>${r.uid ? `<input type="checkbox" data-uid="${esc(r.uid)}" ${r.completed ? 'checked' : ''}>` : ''}</td>
+    <td class="mono dim">${esc(dueText(r.dueAt))}</td>
+    <td${r.completed ? ' style="text-decoration:line-through; color:#66737F"' : ''}>${esc(r.title)}</td>
+    <td class="dim">${esc(r.course ?? '')}</td>
+    <td class="mono dim">${r.source === 'canvas' ? 'Canvas' : 'カレンダー'}</td>`);
+
+  // 完了チェック: uid 付きの行だけ操作可能。成功したら再描画して取り消し線を反映する
+  $('calDeadlinesCard').querySelectorAll('input[type=checkbox]').forEach((cb) => {
+    cb.onchange = async () => {
+      cb.disabled = true;
+      try {
+        await api('/deadlines/complete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ uid: cb.dataset.uid, completed: cb.checked }),
+        });
+        refreshCalendar();
+      } catch (e) {
+        cb.checked = !cb.checked;
+        cb.disabled = false;
+        $('calInfoSub').textContent = e.message;
+      }
+    };
+  });
+}
+
 // AI 利用状況タブ（GET /admin/ai-usage）
 async function refreshAi() {
   $('aiSub').textContent = '読み込み中…';
@@ -310,16 +379,17 @@ async function refreshAi() {
 }
 
 // サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
+const PAGES = ['dashboard', 'calendar', 'ai'];
+const PAGE_REFRESH = { calendar: refreshCalendar, ai: refreshAi };
 let currentPage = 'dashboard';
 
 function showPage(page) {
   currentPage = page;
-  $('page-dashboard').hidden = page !== 'dashboard';
-  $('page-ai').hidden = page !== 'ai';
+  for (const p of PAGES) $('page-' + p).hidden = p !== page;
   document.querySelectorAll('.sidebar nav a').forEach((a) => {
     a.classList.toggle('active', a.dataset.page === page);
   });
-  if (page === 'ai' && secret()) refreshAi();
+  if (secret()) PAGE_REFRESH[page]?.();
 }
 
 document.querySelectorAll('.sidebar nav a').forEach((a) => {
@@ -382,7 +452,7 @@ $('calSaveBtn').onclick = async () => {
 $('saveBtn').onclick = () => {
   localStorage.setItem('adminSecret', $('secret').value.trim());
   refresh();
-  if (currentPage === 'ai') refreshAi();
+  PAGE_REFRESH[currentPage]?.();
 };
 
 $('runBtn').onclick = async () => {
