@@ -21,3 +21,12 @@
 - [x] 2026-07-16 iOS 実機ビルドスクリプト: `run-ios-device.sh`（Mac の LAN IP を接続先として自動注入・`--prod` で本番切替・`backend/.env` のシークレット注入。実機でデバイス登録 → APNs テスト通知到達までライブ検証） [plan](docs/plans/archive/ios-device-build-script.md)
 - [x] 2026-07-16 run-admin.sh: ローカルで管理画面付き API サーバを起動（ポート占有プロセスを停止 → 起動 → ブラウザで /admin を自動オープン。`/admin/`（末尾スラッシュ）も 200 になるようルート修正込み） [plan](docs/plans/archive/run-admin-script.md)
 - [x] 2026-07-16 管理画面: `GET /admin`（esl と同デザインの単一 HTML）+ `GET /admin/status` + `POST /admin/run-briefing` で、ブラウザからブリーフィング手動実行・状態確認（デバイス / push / コレクタ / ログ末尾）。g3plus 反映済みで SSH 運用を廃止。本番で実行 → 生成 → 実機 push `sent` まで確認 [plan](docs/plans/archive/admin-panel.md)
+- [x] 2026-07-16 MVP 設定: Google Cloud「デスクトップアプリ」OAuth クライアント作成 → ID/SECRET を `.env` → `npm run google:auth` でリフレッシュトークン取得 → `npm run collectors:check` で実データ確認
+- [x] 2026-07-16 MVP 設定: APNs 認証キー作成（Key ID `5FYQTB5C3B`。正本は `~/Keys/apple/AuthKey_5FYQTB5C3B.p8`、チーム共用キーなので他アプリでも再利用可）→ `.env` に APNS_KEY_ID / P8_PATH を投入 → `apns:check -- --fixture` パス + 実 APNs でキー認証確認（ダミートークンに `400 BadDeviceToken` = JWT 受理）
+- [x] 2026-07-16 MVP: 実機で通知許可 → Setting タブでデバイス登録を確認（`run-ios-device.sh` の接続先焼き込みで手入力なしに登録。DB に ios デバイス 1 台登録）
+- [x] 2026-07-16 MVP: `npm run apns:check` で実機到達確認（登録デバイス宛て送信成功・実機でバナー表示を確認）
+- [x] 2026-07-16 MVP: g3plus へデプロイ（`npm ci` → `.env`/`.p8` 配置 → systemd で API 常駐 → crontab 登録。公開 URL は `https://secretary.chobi.me`、Cloudflare 経由。認証付き curl で 404 = 稼働確認） [手順](docs/specs/deploy-g3plus.md)
+- [x] 2026-07-16 MVP: iOS アプリを本番向けに切替（`run-ios-device.sh --prod` で `https://secretary.chobi.me` を焼き込み。接続先切替時に自動再登録する AppState 修正込み、実機で URL 表示を確認）
+- [x] 2026-07-16 MVP: ブリーフィングを本番で手動実行 → 実機到達確認（管理画面 API `run-briefing` で生成 → push `sent`。23:45 PT、briefings.id=2。初回 2 回は Anthropic 529 で失敗 → LLM リトライを別タスクで対応）
+- [x] 2026-07-16 LLM 混雑リトライ実装: briefing.ts に createMessageWithRetry（typecheck + `llm:check -- --fixture` で実 API 成功を確認。コミット d12bb9d） [plan](docs/plans/archive/llm-retry.md)
+- [x] 2026-07-17 LLM 混雑リトライを g3plus に反映（コミット d12bb9d をデプロイ。07:00 PT の cron が混雑リトライ付きで動作する状態に） [plan](docs/plans/archive/llm-retry.md)
