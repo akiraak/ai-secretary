@@ -7,7 +7,7 @@ cd "$SCRIPT_DIR/ios"
 SCHEME="AISecretary"
 PROJECT="AISecretary.xcodeproj"
 BUNDLE_ID="com.akiraak.ai-secretary"
-PROD_BASE_URL="http://g3plus.local:8787"
+PROD_BASE_URL="https://secretary.chobi.me"
 LOCAL_PORT="8787"
 
 usage() {
@@ -16,7 +16,7 @@ Usage: run-ios-device.sh [--local|--prod]
 
   --local  ローカル backend に接続するビルド（デフォルト）。
            Mac の LAN IP を自動検出して http://<IP>:8787 を焼き込む
-  --prod   本番サーバ (http://g3plus.local:8787) に接続するビルド
+  --prod   本番サーバ (https://secretary.chobi.me) に接続するビルド
 
 いずれも backend/.env の API_SHARED_SECRET を注入する（g3plus にも同じ値を配置する前提）。
 環境変数 DEVICE_ID / BACKEND_BASE_URL / BACKEND_API_SECRET で個別に上書きできる。

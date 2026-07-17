@@ -28,6 +28,10 @@ final class AppState {
     private(set) var registeredToken: String? {
         didSet { defaults.set(registeredToken, forKey: "registeredToken") }
     }
+    /// 登録先バックエンドの URL（ローカル ⇄ 本番の切替時に再登録が要るため）
+    private(set) var registeredBackend: String? {
+        didSet { defaults.set(registeredBackend, forKey: "registeredBackend") }
+    }
 
     // MARK: 実行時状態
 
@@ -48,6 +52,7 @@ final class AppState {
         sharedSecret = Self.storedOrBaked(defaults, key: "sharedSecret", infoKey: "BackendAPISecret")
         onboardingDone = defaults.bool(forKey: "onboardingDone")
         registeredToken = defaults.string(forKey: "registeredToken")
+        registeredBackend = defaults.string(forKey: "registeredBackend")
     }
 
     /// UserDefaults の保存値が空でなければそれを、なければビルド時に
@@ -67,7 +72,7 @@ final class AppState {
     var isConfigured: Bool { client != nil }
 
     var isDeviceRegistered: Bool {
-        deviceToken != nil && deviceToken == registeredToken
+        deviceToken != nil && deviceToken == registeredToken && backendURLString == registeredBackend
     }
 
     // MARK: 通知・デバイス登録
@@ -104,10 +109,11 @@ final class AppState {
     /// トークンと接続設定が揃っていれば POST /devices する（force = 登録済みでも再送）
     func registerDeviceIfPossible(force: Bool = false) async {
         guard let token = deviceToken, let client else { return }
-        if !force && token == registeredToken { return }
+        if !force && token == registeredToken && backendURLString == registeredBackend { return }
         do {
             try await client.registerDevice(token: token)
             registeredToken = token
+            registeredBackend = backendURLString
             lastErrorMessage = nil
         } catch {
             lastErrorMessage = "デバイス登録に失敗しました: \(error.localizedDescription)"

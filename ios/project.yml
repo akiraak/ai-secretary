@@ -28,7 +28,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         # 接続先の既定値。実機向けは run-ios-device.sh が上書きする
         # （--local = Mac の LAN IP を自動検出 / --prod = 下記の本番 URL）。
-        BACKEND_BASE_URL: http://g3plus.local:8787
+        BACKEND_BASE_URL: https://secretary.chobi.me
         # API 共有シークレット。既定は空（Setting タブで入力）。
         # run-ios-device.sh が backend/.env の API_SHARED_SECRET を注入する。
         BACKEND_API_SECRET: ""

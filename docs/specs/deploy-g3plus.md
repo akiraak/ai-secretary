@@ -48,9 +48,9 @@ curl -i http://localhost:8787/briefings/latest \
   -H "Authorization: Bearer $API_SHARED_SECRET"   # 生成前は 404、生成後は 200
 ```
 
-- iOS アプリからは LAN 内アドレス（例 `http://g3plus.local:8787` や固定 IP）で到達させる。
-  ufw を使っている場合は `sudo ufw allow 8787/tcp`
-- iOS の Setting タブで同じ URL と共有シークレットを設定する
+- iOS アプリからは公開 URL **`https://secretary.chobi.me`**（Cloudflare 経由で g3plus の 8787 へ）で到達させる
+- `./run-ios-device.sh --prod` が接続先 URL と共有シークレットをアプリに焼き込むため、
+  iOS の Setting タブでの手入力は不要（手動で上書きも可）
 
 ## 3. cron 登録（毎朝 07:00 PT）
 

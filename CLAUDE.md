@@ -40,7 +40,7 @@ xcodebuild -project AISecretary.xcodeproj -scheme AISecretary \
 
 実機ビルドは `Config/Local.example.xcconfig` を `Local.xcconfig` にコピーして `DEVELOPMENT_TEAM` を設定（git 管理外）。
 
-実機へのビルド & インストールはリポジトリ直下の `./run-ios-device.sh` を使う（`--local`（既定）= Mac の LAN IP を接続先として焼き込み / `--prod` = `http://g3plus.local:8787`。`backend/.env` の `API_SHARED_SECRET` も注入される）。
+実機へのビルド & インストールはリポジトリ直下の `./run-ios-device.sh` を使う（`--local`（既定）= Mac の LAN IP を接続先として焼き込み / `--prod` = `https://secretary.chobi.me`。`backend/.env` の `API_SHARED_SECRET` も注入される）。
 
 ## 作業方針
 
