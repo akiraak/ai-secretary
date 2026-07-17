@@ -25,5 +25,8 @@ if command -v open >/dev/null 2>&1; then
   ( sleep 1.5; open "http://localhost:${PORT}/admin" ) &
 fi
 
+# ローカル管理画面用スクリプトなので admin を既定で有効にする（環境変数で上書き可）
+export ADMIN_ENABLED="${ADMIN_ENABLED:-on}"
+
 cd backend
 exec npm start

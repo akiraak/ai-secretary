@@ -35,3 +35,4 @@
 - [x] 2026-07-17 MVP: 朝ブリーフィングを iOS アプリに push — 完了（収集 → LLM 整形 → 保存 → APNs push の全パイプラインが g3plus 本番で毎朝 07:00 PT に自動稼働） [plan](docs/plans/archive/mvp-morning-briefing.md)
 - [x] 2026-07-17 収集カレンダーを管理画面から設定可能に: `/admin` の「収集カレンダー」で Google の全カレンダー一覧からチェック選択 → SQLite `settings` に保存（未設定時は従来の `.env` GOOGLE_CALENDAR_IDS にフォールバック）。GET/PUT `/admin/calendars` を追加し、実 Google API + 一時 DB でライブ検証（保存 → selected 反映 → collector が DB 設定を優先することを確認） [plan](docs/plans/archive/admin-calendar-settings.md)
 - [x] 2026-07-17 AI利用状況を管理画面に表示: LLM 呼び出しの usage（モデル / トークン数 / 料金）を SQLite `llm_usage` に記録し、`/admin` ダッシュボードに「AI 料金 (今月)」カード + 専用「AI 利用状況」タブ（今月/累計コスト・月別集計・直近の呼び出し）を追加。GET `/admin/ai-usage` を新設し、一時 DB + curl と実 API（`llm:check --fixture` で $0.0027 の計算一致）でライブ検証 [plan](docs/plans/archive/admin-ai-usage.md)
+- [x] 2026-07-17 run-admin.sh で管理画面が 404 になる問題を修正（認証ゲート追加後 `ADMIN_ENABLED=on` が未設定だったため。ローカル用スクリプト側で既定 on に — 環境変数で上書き可。別ポートで /admin 200 をライブ検証）
