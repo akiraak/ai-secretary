@@ -89,8 +89,12 @@ CREATE TABLE IF NOT EXISTS deadline_completions (
 
 ## Steps
 
-- [ ] backend: DeadlineItem.uid 透過 + schema + repo（掃除含む）
-- [ ] backend: GET /deadlines + POST /deadlines/complete
-- [ ] backend: runBriefing への completions 反映（LLM 除外 + payload フラグ）
-- [ ] iOS: 締切行のチェック UI + API 呼び出し
+- [x] backend: DeadlineItem.uid 透過 + schema + repo（掃除含む）
+- [x] backend: GET /deadlines + POST /deadlines/complete
+- [x] backend: runBriefing への completions 反映（LLM 除外 + payload フラグ）
+- [x] iOS: 締切行のチェック UI + API 呼び出し
 - [ ] 本番デプロイ（g3plus で pull + rebuild）+ 実機で保持確認
+
+補足（実装時の設計変更）: GET /deadlines のレスポンスに `completedUids`（完了 uid の全リスト）を
+追加した。最新収集ウィンドウ外の締切（古い payload に残る表示分）の完了状態もアプリが正確に
+同期できるようにするため。アプリはこれを正として、取得失敗時のみ payload のフラグへフォールバック。

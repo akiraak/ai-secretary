@@ -2,6 +2,8 @@
 // エンドポイントが少ないのでフレームワークは使わず node:http で実装する。
 //   POST /devices             — iOS デバイストークン登録 {token, platform?}
 //   GET  /briefings/latest    — 最新ブリーフィング JSON（アプリのプル元）
+//   GET  /deadlines           — 最新の Canvas 締切 + 手動完了フラグ（アプリの状態同期用）
+//   POST /deadlines/complete  — 締切の手動完了チェック {uid, completed}
 //   GET  /admin               — 管理画面（静的 HTML。`ADMIN_ENABLED=on` のときのみ）
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
@@ -13,8 +15,16 @@ import { timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT, config } from './config.js';
-import { latestBriefing, upsertDevice } from './db/repo.js';
+import {
+  completeDeadline,
+  latestBriefing,
+  latestCollectorRunRaw,
+  listCompletedDeadlineUids,
+  uncompleteDeadline,
+  upsertDevice,
+} from './db/repo.js';
 import { getAiUsage, getStatus, listCalendars, runBriefing, updateCalendars } from './admin.js';
+import type { BriefingPayload, DeadlineItem } from './types.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_TOKEN_LENGTH = 512; // APNs トークンは hex 64 文字程度。異常値は弾く
@@ -101,6 +111,87 @@ function handleUpdateCalendars(body: string, res: http.ServerResponse): void {
   sendJson(res, 200, { ok: true, ids });
 }
 
+// Canvas の ics UID は event-assignment-<id> 形式。それ以外（calendar 由来等）は対象外
+const DEADLINE_UID_PREFIX = 'event-assignment-';
+const MAX_UID_LENGTH = 256;
+
+/** 最新の canvas コレクタ実行（status=ok）から締切一覧を取り出す。無ければ空。 */
+function latestCanvasDeadlines(): { collectedAt: string | null; deadlines: DeadlineItem[] } {
+  const run = latestCollectorRunRaw('canvas');
+  if (!run?.raw_json) return { collectedAt: null, deadlines: [] };
+  try {
+    const deadlines = JSON.parse(run.raw_json) as DeadlineItem[];
+    return { collectedAt: run.created_at, deadlines: Array.isArray(deadlines) ? deadlines : [] };
+  } catch {
+    return { collectedAt: null, deadlines: [] };
+  }
+}
+
+/** 最新ブリーフィング payload から uid の締切を探す（canvas 収集に無い古い締切のフォールバック）。 */
+function briefingPayloadDeadline(uid: string): DeadlineItem | undefined {
+  const row = latestBriefing();
+  if (!row) return undefined;
+  try {
+    const payload = JSON.parse(row.payload_json) as BriefingPayload;
+    return payload.deadlines.find((d) => d.uid === uid);
+  } catch {
+    return undefined;
+  }
+}
+
+function handleListDeadlines(res: http.ServerResponse): void {
+  const { collectedAt, deadlines } = latestCanvasDeadlines();
+  const completedUids = listCompletedDeadlineUids();
+  const completed = new Set(completedUids);
+  sendJson(res, 200, {
+    collectedAt,
+    // アプリの状態同期用。最新収集に含まれない締切（古い payload 表示分）もこれで判定できる
+    completedUids,
+    deadlines: deadlines.map((d) =>
+      d.uid && completed.has(d.uid) ? { ...d, completed: true } : d,
+    ),
+  });
+}
+
+function handleCompleteDeadline(body: string, res: http.ServerResponse): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { uid, completed } = parsed as { uid?: unknown; completed?: unknown };
+  if (
+    typeof uid !== 'string' ||
+    !uid.startsWith(DEADLINE_UID_PREFIX) ||
+    uid.length <= DEADLINE_UID_PREFIX.length ||
+    uid.length > MAX_UID_LENGTH
+  ) {
+    sendJson(res, 400, { error: `uid は ${DEADLINE_UID_PREFIX}<id> 形式で指定してください` });
+    return;
+  }
+  if (typeof completed !== 'boolean') {
+    sendJson(res, 400, { error: 'completed は true/false で指定してください' });
+    return;
+  }
+
+  if (!completed) {
+    uncompleteDeadline(uid);
+    sendJson(res, 200, { ok: true, uid, completed: false });
+    return;
+  }
+  // スナップショット（title / due_at）を最新の canvas 収集 → 最新ブリーフィングの順で探す
+  const item =
+    latestCanvasDeadlines().deadlines.find((d) => d.uid === uid) ?? briefingPayloadDeadline(uid);
+  if (!item) {
+    sendJson(res, 404, { error: '指定された uid の締切が見つかりません' });
+    return;
+  }
+  completeDeadline(uid, item.title, item.dueAt);
+  sendJson(res, 200, { ok: true, uid, completed: true });
+}
+
 const ADMIN_HTML_PATH = path.join(BACKEND_ROOT, 'assets', 'admin.html');
 
 function serveAdminPage(res: http.ServerResponse): void {
@@ -176,6 +267,25 @@ export function createServer(secret: string): http.Server {
           return;
         }
         handleLatestBriefing(res);
+        return;
+      }
+
+      if (path === '/deadlines') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        handleListDeadlines(res);
+        return;
+      }
+
+      if (path === '/deadlines/complete') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleCompleteDeadline(body, res);
         return;
       }
 

@@ -127,6 +127,53 @@ export function setSetting(key: string, value: string): void {
     .run(key, value);
 }
 
+/** 締切を手動完了にする（uid = ics の UID。再チェックは completed_at を更新）。 */
+export function completeDeadline(uid: string, title: string, dueAt: string): void {
+  getDb()
+    .prepare(
+      `INSERT INTO deadline_completions (uid, title, due_at) VALUES (?, ?, ?)
+       ON CONFLICT(uid) DO UPDATE SET
+         title = excluded.title,
+         due_at = excluded.due_at,
+         completed_at = datetime('now')`,
+    )
+    .run(uid, title, dueAt);
+}
+
+/** 締切の完了チェックを解除する。 */
+export function uncompleteDeadline(uid: string): void {
+  getDb().prepare('DELETE FROM deadline_completions WHERE uid = ?').run(uid);
+}
+
+/** 完了済み締切の uid 一覧。 */
+export function listCompletedDeadlineUids(): string[] {
+  const rows = getDb().prepare('SELECT uid FROM deadline_completions').all() as { uid: string }[];
+  return rows.map((r) => r.uid);
+}
+
+/**
+ * 締切日が cutoffDate（YYYY-MM-DD）より前の完了行を削除する（テーブル肥大防止）。
+ * due_at は ISO8601 / YYYY-MM-DD 混在だが、日付境界との辞書順比較はどちらの形式でも正しい。
+ */
+export function cleanupDeadlineCompletions(cutoffDate: string): number {
+  const result = getDb()
+    .prepare('DELETE FROM deadline_completions WHERE due_at < ?')
+    .run(cutoffDate);
+  return result.changes;
+}
+
+/** 指定ソースの最新の成功したコレクタ実行（GET /deadlines のデータ源）。 */
+export function latestCollectorRunRaw(
+  source: string,
+): { raw_json: string | null; created_at: string } | undefined {
+  return getDb()
+    .prepare(
+      `SELECT raw_json, created_at FROM collector_runs
+       WHERE source = ? AND status = 'ok' ORDER BY id DESC LIMIT 1`,
+    )
+    .get(source) as ReturnType<typeof latestCollectorRunRaw>;
+}
+
 /** LLM API 呼び出しの usage を記録する。 */
 export function insertLlmUsage(row: {
   briefingDate?: string;

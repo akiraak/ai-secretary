@@ -43,11 +43,11 @@ export function extractDeadlines(icsText: string, now: Date): DeadlineItem[] {
     if (ev.start.dateOnly) {
       const d = ev.start.date;
       if (d < startDate || d >= endDate) continue;
-      deadlines.push(makeDeadline(summary, d));
+      deadlines.push(makeDeadline(summary, d, ev.uid));
     } else {
       const t = ev.start.instant;
       if (t < windowStart || t >= windowEnd) continue;
-      deadlines.push(makeDeadline(summary, t.toISOString()));
+      deadlines.push(makeDeadline(summary, t.toISOString(), ev.uid));
     }
   }
 
@@ -56,7 +56,7 @@ export function extractDeadlines(icsText: string, now: Date): DeadlineItem[] {
 }
 
 /** SUMMARY「課題名 [コース名]」を title / course に分ける。 */
-function makeDeadline(summary: string, dueAt: string): DeadlineItem {
+function makeDeadline(summary: string, dueAt: string, uid?: string): DeadlineItem {
   const m = /^(.*?)\s*\[([^\][]+)\]$/.exec(summary);
   const title = m ? m[1]!.trim() : summary;
   return {
@@ -64,5 +64,6 @@ function makeDeadline(summary: string, dueAt: string): DeadlineItem {
     title: title || summary,
     dueAt,
     course: m ? m[2]!.trim() : undefined,
+    uid,
   };
 }

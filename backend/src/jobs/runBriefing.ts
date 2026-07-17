@@ -1,11 +1,36 @@
 // `npm run briefing` — 収集 → LLM 生成 → SQLite 保存 → APNs push を 1 回実行する（cron から呼ぶ本体）。
 import { pathToFileURL } from 'node:url';
+import { config } from '../config.js';
 import { closeDb } from '../db/index.js';
-import { insertBriefing, insertCollectorRun, insertLlmUsage } from '../db/repo.js';
+import {
+  cleanupDeadlineCompletions,
+  insertBriefing,
+  insertCollectorRun,
+  insertLlmUsage,
+  listCompletedDeadlineUids,
+} from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
 import { generateBriefing } from '../llm/briefing.js';
 import { pushBriefingToDevices } from '../push/briefingPush.js';
-import type { CollectedInput } from '../types.js';
+import { briefingDate } from '../util/time.js';
+import type { CollectedInput, DeadlineItem } from '../types.js';
+
+/** 完了行を掃除するまでの日数（フィードは過去の課題を含み続けるため期日基準で消す） */
+const COMPLETION_RETENTION_DAYS = 60;
+
+/**
+ * 手動完了済みの uid を締切一覧へ反映する。
+ * annotated = completed フラグ付き全件（payload 保存用）/ active = 未完了のみ（LLM 入力用）。
+ */
+export function applyDeadlineCompletions(
+  deadlines: DeadlineItem[],
+  completedUids: Set<string>,
+): { annotated: DeadlineItem[]; active: DeadlineItem[] } {
+  const annotated = deadlines.map((d) =>
+    d.uid && completedUids.has(d.uid) ? { ...d, completed: true } : d,
+  );
+  return { annotated, active: annotated.filter((d) => !d.completed) };
+}
 
 /**
  * コレクタごとの実行結果を collector_runs 用に組み立てる。
@@ -59,7 +84,18 @@ async function main(): Promise<void> {
     insertCollectorRun({ briefingDate: input.date, ...run });
   }
 
-  const briefing = await generateBriefing(input);
+  // 手動完了済みの締切は LLM 入力（= 通知文面）から除外し、payload には全件フラグ付きで残す
+  cleanupDeadlineCompletions(
+    briefingDate(new Date(now.getTime() - COMPLETION_RETENTION_DAYS * 86_400_000), config.briefing.tz),
+  );
+  const completedUids = new Set(listCompletedDeadlineUids());
+  const { annotated, active } = applyDeadlineCompletions(input.deadlines, completedUids);
+  if (active.length !== annotated.length) {
+    console.log(`締切 ${annotated.length} 件中 ${annotated.length - active.length} 件は完了済み（LLM 入力から除外）`);
+  }
+
+  const briefing = await generateBriefing({ ...input, deadlines: active });
+  briefing.payload.deadlines = annotated;
   insertLlmUsage({ briefingDate: input.date, purpose: 'briefing', ...briefing.usage });
   console.log(
     `LLM: ${briefing.usage.model} 入力 ${briefing.usage.inputTokens} / 出力 ${briefing.usage.outputTokens} トークン` +

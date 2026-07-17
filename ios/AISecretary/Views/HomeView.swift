@@ -166,10 +166,24 @@ struct HomeView: View {
     }
 
     private func deadlineRow(_ item: DeadlineItem) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        let done = state.isDeadlineCompleted(item)
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            // uid がある締切（canvas 由来）だけ手動完了チェックできる
+            if let uid = item.uid {
+                Button {
+                    Task { await state.toggleDeadlineCompleted(uid: uid) }
+                } label: {
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(done ? Color.doneGreen : Color.secondary)
+                }
+                .buttonStyle(.plain)
+            }
             DuePill(dueAt: item.dueAt)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title).font(.subheadline)
+                Text(item.title)
+                    .font(.subheadline)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? .secondary : .primary)
                 if let course = item.course, !course.isEmpty {
                     Text(course).font(.caption).foregroundStyle(.secondary)
                 }

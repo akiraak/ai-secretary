@@ -42,6 +42,10 @@ final class AppState {
     private(set) var briefing: LatestBriefing?
     private(set) var isRefreshing = false
     var lastErrorMessage: String?
+    /// 手動完了済みの締切 uid（サーバの deadline_completions と同期）
+    private(set) var completedDeadlineUids: Set<String> = []
+    /// 完了チェックの通信中 uid（連打防止）
+    private var togglingDeadlineUids: Set<String> = []
 
     private let defaults = UserDefaults.standard
 
@@ -134,10 +138,48 @@ final class AppState {
             lastErrorMessage = briefing == nil
                 ? "まだブリーフィングがありません（backend で npm run briefing を実行）"
                 : nil
+            await syncDeadlineCompletions()
             // 設定変更後の取り直しついでに、未登録トークンがあれば登録も試みる
             await registerDeviceIfPossible()
         } catch {
             lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: 締切の手動完了チェック
+
+    /// サーバから完了状態を取り直す。失敗時は payload のスナップショットへフォールバック
+    func syncDeadlineCompletions() async {
+        guard let client else { return }
+        do {
+            completedDeadlineUids = Set(try await client.fetchDeadlines().completedUids)
+        } catch {
+            completedDeadlineUids = Set(
+                (briefing?.payload.deadlines ?? [])
+                    .filter { $0.completed == true }
+                    .compactMap(\.uid)
+            )
+        }
+    }
+
+    func isDeadlineCompleted(_ item: DeadlineItem) -> Bool {
+        guard let uid = item.uid else { return false }
+        return completedDeadlineUids.contains(uid)
+    }
+
+    /// 完了チェックをトグルする（楽観的更新。失敗時は元に戻してエラー表示）
+    func toggleDeadlineCompleted(uid: String) async {
+        guard let client, !togglingDeadlineUids.contains(uid) else { return }
+        let newValue = !completedDeadlineUids.contains(uid)
+        togglingDeadlineUids.insert(uid)
+        defer { togglingDeadlineUids.remove(uid) }
+
+        if newValue { completedDeadlineUids.insert(uid) } else { completedDeadlineUids.remove(uid) }
+        do {
+            try await client.setDeadlineCompleted(uid: uid, completed: newValue)
+        } catch {
+            if newValue { completedDeadlineUids.remove(uid) } else { completedDeadlineUids.insert(uid) }
+            lastErrorMessage = "締切の完了チェックを保存できませんでした: \(error.localizedDescription)"
         }
     }
 

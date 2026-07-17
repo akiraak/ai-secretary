@@ -46,6 +46,14 @@ CREATE TABLE IF NOT EXISTS push_log (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 手動で完了にした締切（uid = ics の UID `event-assignment-<id>`。canvas 由来のみ）
+CREATE TABLE IF NOT EXISTS deadline_completions (
+  uid          TEXT PRIMARY KEY,
+  title        TEXT NOT NULL,                  -- 完了時点の課題名（表示・デバッグ用スナップショット）
+  due_at       TEXT NOT NULL,                  -- ISO8601 or YYYY-MM-DD（古い行の掃除の基準）
+  completed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- LLM API 呼び出しの usage 記録（管理画面の AI 利用状況表示用）
 CREATE TABLE IF NOT EXISTS llm_usage (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,

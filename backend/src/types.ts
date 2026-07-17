@@ -10,6 +10,10 @@ export interface DeadlineItem {
   title: string;
   dueAt: string; // ISO8601
   course?: string;
+  /** ics の UID（event-assignment-<id>）。canvas 由来のみ。手動完了チェックのキー */
+  uid?: string;
+  /** 手動で完了済みにした締切（deadline_completions 由来） */
+  completed?: boolean;
 }
 
 /** リポジトリ TODO.md から抽出した「今日やる／次の作業」 */

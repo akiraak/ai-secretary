@@ -46,6 +46,38 @@ struct CalendarTabView: View {
         }
     }
 
+    private func deadlineRow(_ item: DeadlineItem) -> some View {
+        let done = state.isDeadlineCompleted(item)
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            // uid がある締切（canvas 由来）だけ手動完了チェックできる
+            if let uid = item.uid {
+                Button {
+                    Task { await state.toggleDeadlineCompleted(uid: uid) }
+                } label: {
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(done ? Color.doneGreen : Color.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            DuePill(dueAt: item.dueAt)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.subheadline)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? .secondary : .primary)
+                HStack(spacing: 6) {
+                    if let course = item.course, !course.isEmpty {
+                        Text(course)
+                    }
+                    Text(item.source == "canvas" ? "Canvas" : "カレンダー")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+    }
+
     @ViewBuilder
     private var deadlinesSection: some View {
         let deadlines = (payload?.deadlines ?? []).sorted {
@@ -56,22 +88,7 @@ struct CalendarTabView: View {
                 EmptyRow(message: "直近の締切はありません")
             } else {
                 ForEach(deadlines.indices, id: \.self) { i in
-                    let item = deadlines[i]
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        DuePill(dueAt: item.dueAt)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title).font(.subheadline)
-                            HStack(spacing: 6) {
-                                if let course = item.course, !course.isEmpty {
-                                    Text(course)
-                                }
-                                Text(item.source == "canvas" ? "Canvas" : "カレンダー")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
+                    deadlineRow(deadlines[i])
                 }
             }
         }

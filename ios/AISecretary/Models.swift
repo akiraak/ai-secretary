@@ -30,6 +30,18 @@ struct DeadlineItem: Codable, Equatable {
     let title: String
     let dueAt: String // ISO8601 または YYYY-MM-DD（日付のみ）
     let course: String?
+    /// ics の UID（event-assignment-<id>）。canvas 由来のみ。手動完了チェックのキー
+    let uid: String?
+    /// 手動で完了済みにした締切（ブリーフィング生成時点のスナップショット）
+    let completed: Bool?
+}
+
+/// GET /deadlines のレスポンス（server.ts handleListDeadlines）
+struct DeadlinesResponse: Codable, Equatable {
+    let collectedAt: String?
+    /// 完了済み uid の全リスト（アプリの状態同期はこれを正とする）
+    let completedUids: [String]
+    let deadlines: [DeadlineItem]
 }
 
 /// 今日の予定

@@ -53,6 +53,27 @@ struct BackendClient {
         return try JSONDecoder().decode(LatestBriefing.self, from: data)
     }
 
+    /// 最新の Canvas 締切と完了状態を取得する（GET /deadlines）
+    func fetchDeadlines() async throws -> DeadlinesResponse {
+        let request = makeRequest(path: "/deadlines", method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.ensureOK(data: data, response: response)
+        return try JSONDecoder().decode(DeadlinesResponse.self, from: data)
+    }
+
+    /// 締切の手動完了チェックを更新する（POST /deadlines/complete）
+    func setDeadlineCompleted(uid: String, completed: Bool) async throws {
+        struct Body: Encodable {
+            let uid: String
+            let completed: Bool
+        }
+        var request = makeRequest(path: "/deadlines/complete", method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(Body(uid: uid, completed: completed))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.ensureOK(data: data, response: response)
+    }
+
     private func makeRequest(path: String, method: String) -> URLRequest {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = method
