@@ -49,4 +49,4 @@ TODO「１ヶ月表示、１週間表示」。現状の Calendar タブは「今
 
 - [x] backend: 収集窓拡張（config + calendar.ts + payload.events + 管理画面）
 - [x] iOS: 週表示 / 月表示 + 選択日リスト（シミュレータビルドまで確認）
-- [ ] 実機確認
+- [x] 実機確認（2026-07-17）

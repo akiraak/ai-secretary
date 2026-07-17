@@ -129,4 +129,4 @@ CREATE TABLE IF NOT EXISTS calendar_items (
 - [x] backend: collectCalendar に id 保持 + 収集窓拡張（config）
 - [x] backend: runBriefing で差分 → changed 付与 + プロンプト変更セクション + summary ルール
 - [x] iOS: 新規/変更バッジ + 変更一覧表示（シミュレータビルドまで確認）
-- [ ] 本番デプロイ + 実機で差分表示・briefing 言及を確認
+- [x] 本番デプロイ + 実機で差分表示・briefing 言及を確認（2026-07-17）
