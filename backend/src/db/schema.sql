@@ -50,3 +50,11 @@ CREATE TABLE IF NOT EXISTS schema_meta (
   version    INTEGER NOT NULL,
   applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 管理画面から変更できる設定（key-value）。値は JSON 文字列
+-- google_calendar_ids: 収集対象カレンダー ID の JSON 配列（無ければ .env の GOOGLE_CALENDAR_IDS）
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

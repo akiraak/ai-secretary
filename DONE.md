@@ -33,3 +33,4 @@
 - [x] 2026-07-17 MVP: 実機で手動実装確認（Setting「登録済み」+ 接続テスト ✓ / 通知到達 = 通知センター着信で確認（深夜はおやすみモードでバナー抑制されるだけ）/ HOME 統合フィード実データ / GitHub・Calendar タブ実データ / プルリフレッシュ。Calendar に Google 予定が出なかったのは期間内に予定ゼロで正常動作 — テスト予定を作成して表示まで確認）
 - [x] 2026-07-17 MVP: 07:00 PT の cron 自動配信を確認（07:00:15 PT に briefings.id=4 が自動生成・APNs 受理。混雑リトライ込みの構成で稼働）
 - [x] 2026-07-17 MVP: 朝ブリーフィングを iOS アプリに push — 完了（収集 → LLM 整形 → 保存 → APNs push の全パイプラインが g3plus 本番で毎朝 07:00 PT に自動稼働） [plan](docs/plans/archive/mvp-morning-briefing.md)
+- [x] 2026-07-17 収集カレンダーを管理画面から設定可能に: `/admin` の「収集カレンダー」で Google の全カレンダー一覧からチェック選択 → SQLite `settings` に保存（未設定時は従来の `.env` GOOGLE_CALENDAR_IDS にフォールバック）。GET/PUT `/admin/calendars` を追加し、実 Google API + 一時 DB でライブ検証（保存 → selected 反映 → collector が DB 設定を優先することを確認） [plan](docs/plans/archive/admin-calendar-settings.md)

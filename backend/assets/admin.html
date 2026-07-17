@@ -108,6 +108,14 @@
     <h2>最新ブリーフィング</h2>
     <div class="briefing-block" id="briefing"><span class="faint">（なし）</span></div>
 
+    <h2>収集カレンダー</h2>
+    <div class="card" id="calCard"><div class="empty">「一覧を読み込み」を押すと Google からカレンダー一覧を取得します</div></div>
+    <div class="run-row" style="margin-top:10px">
+      <button class="btn btn-secondary" id="calLoadBtn">一覧を読み込み</button>
+      <button class="btn btn-primary" id="calSaveBtn" disabled>選択を保存</button>
+      <span class="dim" id="calMsg"></span>
+    </div>
+
     <h2>直近の push</h2>
     <div class="card" id="pushLogs"><div class="empty">（なし）</div></div>
 
@@ -150,8 +158,9 @@ async function api(path, opts = {}) {
     headers: { Authorization: 'Bearer ' + secret(), ...(opts.headers || {}) },
   });
   if (res.status === 401) throw new Error('認証エラー: 共有シークレットを確認してください');
-  if (!res.ok && res.status !== 202) throw new Error('HTTP ' + res.status);
-  return res.json();
+  const data = await res.json().catch(() => null);
+  if (!res.ok && res.status !== 202) throw new Error((data && data.error) || 'HTTP ' + res.status);
+  return data;
 }
 
 function pill(status) {
@@ -226,6 +235,56 @@ async function refresh() {
     $('jobMsg').textContent = last ? `前回: exit=${last.exitCode} (${seattle(last.endedAt)})` : '';
   }
 }
+
+// 収集カレンダー: Google API を叩くので自動 refresh には含めず、明示操作で読み込む
+let calendars = null;
+
+function renderCalendars() {
+  renderTable($('calCard'), calendars, ['', 'カレンダー', 'ID'], (c) => {
+    const i = calendars.indexOf(c);
+    return `
+    <td><input type="checkbox" id="cal-${i}" ${c.selected ? 'checked' : ''}></td>
+    <td><label for="cal-${i}">${esc(c.summary)}</label>${c.primary ? ' <span class="pill status-success">primary</span>' : ''}</td>
+    <td class="mono dim">${esc(c.id)}</td>`;
+  });
+}
+
+$('calLoadBtn').onclick = async () => {
+  $('calMsg').textContent = '読み込み中…';
+  $('calLoadBtn').disabled = true;
+  try {
+    const r = await api('/admin/calendars');
+    calendars = r.calendars;
+    renderCalendars();
+    $('calSaveBtn').disabled = false;
+    $('calMsg').textContent = `${calendars.length} 件（チェック = 収集対象）`;
+  } catch (e) {
+    $('calMsg').textContent = e.message;
+  } finally {
+    $('calLoadBtn').disabled = false;
+  }
+};
+
+$('calSaveBtn').onclick = async () => {
+  const ids = calendars.filter((_, i) => $('cal-' + i).checked).map((c) => c.id);
+  if (ids.length === 0) {
+    $('calMsg').textContent = '最低 1 つのカレンダーを選択してください';
+    return;
+  }
+  $('calSaveBtn').disabled = true;
+  try {
+    await api('/admin/calendars', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    $('calMsg').textContent = `保存しました（${ids.length} 件。次回ブリーフィングから反映）`;
+  } catch (e) {
+    $('calMsg').textContent = e.message;
+  } finally {
+    $('calSaveBtn').disabled = false;
+  }
+};
 
 $('saveBtn').onclick = () => {
   localStorage.setItem('adminSecret', $('secret').value.trim());

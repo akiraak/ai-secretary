@@ -107,6 +107,26 @@ export function recentPushLogs(limit = 10): Array<{
     .all(limit) as ReturnType<typeof recentPushLogs>;
 }
 
+/** settings の値（JSON 文字列）を返す。未設定なら undefined。 */
+export function getSetting(key: string): string | undefined {
+  const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value;
+}
+
+/** settings に値（JSON 文字列）を保存する。 */
+export function setSetting(key: string, value: string): void {
+  getDb()
+    .prepare(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         updated_at = datetime('now')`,
+    )
+    .run(key, value);
+}
+
 /** コレクタ実行結果を記録する（デバッグ・再生成用）。 */
 export function insertCollectorRun(run: {
   briefingDate: string;

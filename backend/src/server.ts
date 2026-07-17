@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT, config } from './config.js';
 import { latestBriefing, upsertDevice } from './db/repo.js';
-import { getStatus, runBriefing } from './admin.js';
+import { getStatus, listCalendars, runBriefing, updateCalendars } from './admin.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_TOKEN_LENGTH = 512; // APNs トークンは hex 64 文字程度。異常値は弾く
@@ -69,6 +69,35 @@ function handleRegisterDevice(body: string, res: http.ServerResponse): void {
   }
   const device = upsertDevice(token, platform ?? 'ios');
   sendJson(res, 200, { ok: true, id: device.id });
+}
+
+const MAX_CALENDAR_ID_LENGTH = 256; // カレンダー ID はメールアドレス形式。異常値は弾く
+const MAX_CALENDARS = 100;
+
+function handleUpdateCalendars(body: string, res: http.ServerResponse): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { ids } = parsed as { ids?: unknown };
+  if (
+    !Array.isArray(ids) ||
+    ids.length > MAX_CALENDARS ||
+    !ids.every((v) => typeof v === 'string' && v.length > 0 && v.length <= MAX_CALENDAR_ID_LENGTH)
+  ) {
+    sendJson(res, 400, { error: 'ids はカレンダー ID 文字列の配列で指定してください' });
+    return;
+  }
+  if (ids.length === 0) {
+    // 収集ゼロは誤操作の可能性が高いので保存させない
+    sendJson(res, 400, { error: '最低 1 つのカレンダーを選択してください' });
+    return;
+  }
+  updateCalendars(ids);
+  sendJson(res, 200, { ok: true, ids });
 }
 
 const ADMIN_HTML_PATH = path.join(BACKEND_ROOT, 'assets', 'admin.html');
@@ -168,6 +197,25 @@ export function createServer(secret: string): http.Server {
         } else {
           sendJson(res, 409, { error: 'briefing ジョブは既に実行中です' });
         }
+        return;
+      }
+
+      if (path === '/admin/calendars') {
+        if (req.method === 'GET') {
+          try {
+            sendJson(res, 200, { calendars: await listCalendars() });
+          } catch (e) {
+            // Google API 側の失敗（未認可・ネットワーク等）は原因を管理画面に出す
+            sendJson(res, 502, { error: `カレンダー一覧の取得に失敗: ${(e as Error).message}` });
+          }
+          return;
+        }
+        if (req.method === 'PUT') {
+          const body = await readBody(req, res);
+          if (body !== null) handleUpdateCalendars(body, res);
+          return;
+        }
+        sendJson(res, 405, { error: 'GET または PUT を使ってください' });
         return;
       }
 

@@ -5,7 +5,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT } from './config.js';
+import { calendarClient } from './auth/google.js';
 import { latestBriefing, listDevices, recentCollectorRuns, recentPushLogs } from './db/repo.js';
+import { resolveCalendarIds, saveCalendarIds } from './settings.js';
 
 const BRIEFING_SCRIPT = path.join(BACKEND_ROOT, 'scripts', 'cron-briefing.sh');
 const LOG_DIR = path.join(BACKEND_ROOT, 'logs');
@@ -62,6 +64,44 @@ function latestLogTail(): { file: string; tail: string } | null {
   } catch {
     return null;
   }
+}
+
+export interface AdminCalendar {
+  id: string;
+  summary: string;
+  primary: boolean;
+  selected: boolean;
+}
+
+/** Google アカウントの全カレンダーに収集対象フラグを付けて返す（GET /admin/calendars）。 */
+export async function listCalendars(): Promise<AdminCalendar[]> {
+  const cal = calendarClient();
+  const selected = new Set(resolveCalendarIds());
+  const items: AdminCalendar[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await cal.calendarList.list({ maxResults: 250, pageToken });
+    for (const c of res.data.items ?? []) {
+      if (!c.id) continue;
+      items.push({
+        id: c.id,
+        summary: c.summaryOverride ?? c.summary ?? c.id,
+        primary: c.primary === true,
+        // .env 既定の別名 'primary' は実 ID（メールアドレス）の primary カレンダーを指す
+        selected: selected.has(c.id) || (c.primary === true && selected.has('primary')),
+      });
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  items.sort((a, b) =>
+    a.primary !== b.primary ? (a.primary ? -1 : 1) : a.summary.localeCompare(b.summary, 'ja'),
+  );
+  return items;
+}
+
+/** 収集対象カレンダーを保存する（PUT /admin/calendars）。 */
+export function updateCalendars(ids: string[]): void {
+  saveCalendarIds(ids);
 }
 
 /** 管理画面に出す状態のスナップショット（GET /admin/status）。 */

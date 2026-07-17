@@ -4,6 +4,7 @@
 //   （Canvas 由来の締切は Step 3 の iCal コレクタで別途収集する）
 import { calendarClient } from '../auth/google.js';
 import { config } from '../config.js';
+import { resolveCalendarIds } from '../settings.js';
 import { tzDayRange } from '../util/time.js';
 import type { EventItem, DeadlineItem } from '../types.js';
 
@@ -21,7 +22,7 @@ export async function collectCalendar(now: Date = new Date()): Promise<CalendarR
   const events: EventItem[] = [];
   const deadlines: DeadlineItem[] = [];
 
-  for (const calendarId of config.google.calendarIds) {
+  for (const calendarId of resolveCalendarIds()) {
     const res = await cal.events.list({
       calendarId,
       timeMin: start.toISOString(),
