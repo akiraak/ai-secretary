@@ -133,14 +133,19 @@ async function main(): Promise<void> {
     console.log(`  ${m.priority === 'action' ? '🔴 要対応' : '🔵 参考  '} ${m.subject}`);
     console.log(`           ${m.from} — ${m.reason}`);
   }
-  // HOME「GitHub」セクション用の TODO サマリー（キャッシュ判定は runBriefing 側なのでここでは生成のみ）
+  // HOME「GitHub」セクション用のリポジトリ別 TODO サマリー
+  // （キャッシュ判定は runBriefing 側なのでここでは生成のみ）
   if (input.todos.length > 0) {
-    const ts = await generateTodoSummary(input.todos);
-    console.log(
-      `\n【TODO サマリー】(${ts.usage.model} 入力 ${ts.usage.inputTokens} / 出力 ${ts.usage.outputTokens} トークン` +
-        (ts.usage.costUsd != null ? ` = $${ts.usage.costUsd.toFixed(4)}` : '') +
-        `)\n${ts.summary}`,
-    );
+    console.log('\n【TODO サマリー（リポジトリ別）】');
+    for (const repo of [...new Set(input.todos.map((t) => t.repo))]) {
+      const items = input.todos.filter((t) => t.repo === repo);
+      const ts = await generateTodoSummary(repo, items);
+      console.log(
+        `- ${repo} (${items.length}件, 入力 ${ts.usage.inputTokens} / 出力 ${ts.usage.outputTokens} トークン` +
+          (ts.usage.costUsd != null ? ` = $${ts.usage.costUsd.toFixed(4)}` : '') +
+          `)\n  ${ts.summary}`,
+      );
+    }
   }
 
   console.log('\n【payload JSON】');

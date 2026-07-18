@@ -115,15 +115,10 @@ struct HomeView: View {
         }
 
         SectionCard(title: "GitHub", linkTab: .github) {
-            if let summary = payload.todoSummary, !summary.isEmpty {
-                Text(summary)
-                    .font(.subheadline)
-                    .lineSpacing(3)
-            } else if payload.todos.isEmpty {
+            if payload.todos.isEmpty {
                 EmptyRow(message: "TODO は登録されていません")
             } else {
-                // 旧 payload / サマリー生成失敗時はリポジトリ別件数にフォールバック
-                todoCountFallback(payload.todos)
+                todoRepoSummaries(payload)
             }
         }
 
@@ -182,16 +177,33 @@ struct HomeView: View {
         }
     }
 
-    /// サマリーが無い（旧 payload / 生成失敗）ときのリポジトリ別 TODO 件数表示
-    private func todoCountFallback(_ todos: [TodoItem]) -> some View {
-        let byRepo = Dictionary(grouping: todos, by: \.repo)
-        return VStack(alignment: .leading, spacing: 8) {
-            ForEach(byRepo.keys.sorted(), id: \.self) { repo in
-                HStack(spacing: 8) {
-                    RepoTag(repo: repo)
-                    Text("\(byRepo[repo]?.count ?? 0) 件")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+    /// リポジトリごとの TODO サマリー（タグ + 件数 + LLM サマリー）。
+    /// サマリーが無いリポジトリ（旧 payload / 生成失敗）は件数のみ表示にフォールバック。
+    /// 並びは todos の初出順（= backend の GITHUB_REPOS 設定順）を保つ。
+    private func todoRepoSummaries(_ payload: BriefingPayload) -> some View {
+        let byRepo = Dictionary(grouping: payload.todos, by: \.repo)
+        var repos: [String] = []
+        for todo in payload.todos where !repos.contains(todo.repo) {
+            repos.append(todo.repo)
+        }
+        let summaries = Dictionary(
+            (payload.todoSummaries ?? []).map { ($0.repo, $0.summary) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return VStack(alignment: .leading, spacing: 12) {
+            ForEach(repos, id: \.self) { repo in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        RepoTag(repo: repo)
+                        Text("\(byRepo[repo]?.count ?? 0) 件")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    if let summary = summaries[repo], !summary.isEmpty {
+                        Text(summary)
+                            .font(.subheadline)
+                            .lineSpacing(3)
+                    }
                 }
             }
         }

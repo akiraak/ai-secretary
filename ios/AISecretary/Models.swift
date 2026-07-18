@@ -24,8 +24,8 @@ struct BriefingPayload: Codable, Equatable {
     /// 前回ブリーフィング以降のカレンダー変更。旧 payload には無い
     let calendarChanges: [CalendarChange]?
     let todos: [TodoItem]
-    /// TODO.md の LLM サマリー（HOME「GitHub」セクション用）。旧 payload・生成失敗時には無い
-    let todoSummary: String?
+    /// リポジトリごとの TODO.md の LLM サマリー。旧 payload には無く、生成失敗したリポジトリは含まれない
+    let todoSummaries: [TodoRepoSummary]?
     let mails: [MailItem]
     let github: [GithubItem]
 }
@@ -78,6 +78,12 @@ struct EventItem: Codable, Equatable {
 struct TodoItem: Codable, Equatable {
     let repo: String
     let text: String
+}
+
+/// リポジトリ 1 つ分の TODO.md の LLM サマリー（HOME「GitHub」セクション用）
+struct TodoRepoSummary: Codable, Equatable {
+    let repo: String
+    let summary: String
 }
 
 /// Gmail トリアージ結果

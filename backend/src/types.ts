@@ -26,6 +26,12 @@ export interface TodoItem {
   text: string;
 }
 
+/** リポジトリ 1 つ分の TODO.md の LLM サマリー（HOME「GitHub」セクション用） */
+export interface TodoRepoSummary {
+  repo: string;
+  summary: string;
+}
+
 /** Gmail トリアージ結果（要対応 / 参考） */
 export interface MailItem {
   priority: Priority;
@@ -107,8 +113,8 @@ export interface BriefingPayload {
   /** 前回ブリーフィング以降のカレンダー変更。旧 payload には無い */
   calendarChanges?: CalendarChange[];
   todos: TodoItem[];
-  /** TODO.md の LLM サマリー（HOME「GitHub」セクション用）。旧 payload・生成失敗時には無い */
-  todoSummary?: string;
+  /** リポジトリごとの TODO.md の LLM サマリー。旧 payload には無く、生成失敗したリポジトリは含まれない */
+  todoSummaries?: TodoRepoSummary[];
   mails: MailItem[];
   github: GithubItem[];
 }

@@ -80,8 +80,9 @@ CREATE TABLE IF NOT EXISTS calendar_items (
   last_seen   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- TODO サマリーのキャッシュ（hash = TODO 内容 + プロンプト版数 + モデル ID の sha256）。
--- TODO.md が前回と同一なら LLM を呼ばず summary を再利用する。古い行は保存時に掃除
+-- TODO サマリーのキャッシュ（リポジトリ単位。hash = そのリポジトリの TODO 内容 +
+-- プロンプト版数 + モデル ID の sha256）。TODO.md が前回と同一なら LLM を呼ばず
+-- summary を再利用する。古い行は保存時に掃除
 CREATE TABLE IF NOT EXISTS todo_summary_cache (
   hash       TEXT PRIMARY KEY,
   summary    TEXT NOT NULL,
