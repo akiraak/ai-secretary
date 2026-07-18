@@ -1,6 +1,6 @@
 // HOME = 案A 統合フィード。LLM 要約カード + 緊急順セクション
-// （締切が近い(Canvas) → カレンダー(直近7日) → GitHub(TODO サマリー) → 要対応 → 昨日の GitHub）
-// を 1 画面スクロール。
+// （締切が近い(Canvas) → カレンダー(直近7日) → 要対応）を 1 画面スクロール。
+// GitHub 関連は GitHub タブへ集約済み（HOME には出さない）。
 // 参照: docs/specs/ios-app-screens.md「3. 今日のブリーフィング」
 import SwiftUI
 
@@ -122,14 +122,6 @@ struct HomeView: View {
             }
         }
 
-        SectionCard(title: "GitHub", linkTab: .github) {
-            if payload.todos.isEmpty {
-                EmptyRow(message: "TODO は登録されていません")
-            } else {
-                todoRepoSummaries(payload)
-            }
-        }
-
         SectionCard(title: "要対応") {
             if actionMails.isEmpty {
                 EmptyRow(message: "要対応のメールはありません")
@@ -143,14 +135,6 @@ struct HomeView: View {
                 ForEach(infoMails.indices, id: \.self) { i in
                     infoMailRow(infoMails[i])
                 }
-            }
-        }
-
-        SectionCard(title: "昨日の GitHub", linkTab: .github) {
-            if payload.github.isEmpty {
-                EmptyRow(message: "昨日の活動はありません")
-            } else {
-                githubSummary(payload.github)
             }
         }
     }
@@ -182,38 +166,6 @@ struct HomeView: View {
                 }
             }
             Spacer()
-        }
-    }
-
-    /// リポジトリごとの TODO サマリー（タグ + 件数 + LLM サマリー）。
-    /// サマリーが無いリポジトリ（旧 payload / 生成失敗）は件数のみ表示にフォールバック。
-    /// 並びは todos の初出順（= backend の GITHUB_REPOS 設定順）を保つ。
-    private func todoRepoSummaries(_ payload: BriefingPayload) -> some View {
-        let byRepo = Dictionary(grouping: payload.todos, by: \.repo)
-        var repos: [String] = []
-        for todo in payload.todos where !repos.contains(todo.repo) {
-            repos.append(todo.repo)
-        }
-        let summaries = Dictionary(
-            (payload.todoSummaries ?? []).map { ($0.repo, $0.summary) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        return VStack(alignment: .leading, spacing: 12) {
-            ForEach(repos, id: \.self) { repo in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        RepoTag(repo: repo)
-                        Text("\(byRepo[repo]?.count ?? 0) 件")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    if let summary = summaries[repo], !summary.isEmpty {
-                        Text(summary)
-                            .font(.subheadline)
-                            .lineSpacing(3)
-                    }
-                }
-            }
         }
     }
 
@@ -260,33 +212,6 @@ struct HomeView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
-        }
-    }
-
-    /// リポジトリ別にコミット数を集約し、PR はタイトルを出す
-    private func githubSummary(_ items: [GithubItem]) -> some View {
-        let byRepo = Dictionary(grouping: items, by: \.repo)
-        return VStack(alignment: .leading, spacing: 8) {
-            ForEach(byRepo.keys.sorted(), id: \.self) { repo in
-                let repoItems = byRepo[repo] ?? []
-                let commits = repoItems.filter { $0.kind == "commit" }.count
-                let prs = repoItems.filter { $0.kind == "pr" }
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 8) {
-                        RepoTag(repo: repo)
-                        if commits > 0 {
-                            Text("\(commits) commits")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    ForEach(prs.indices, id: \.self) { i in
-                        Label(prs[i].title, systemImage: "arrow.triangle.pull")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
     }
 
