@@ -5,9 +5,12 @@
 import SwiftUI
 
 struct HomeView: View {
+    /// GitHub セクションのリポジトリ折りたたみ閾値（超過分はトグルで展開）
+    private static let githubCollapseLimit = 5
     @Environment(AppState.self) private var state
     // 済チェックは v1 では画面内のみ（Gmail への書き戻しは後フェーズ）
     @State private var doneMails: Set<String> = []
+    @State private var showAllGithubRepos = false
 
     var body: some View {
         NavigationStack {
@@ -179,7 +182,8 @@ struct HomeView: View {
 
     /// リポジトリごとの TODO サマリー（タグ + 件数 + LLM サマリー）。
     /// サマリーが無いリポジトリ（旧 payload / 生成失敗）は件数のみ表示にフォールバック。
-    /// 並びは todos の初出順（= backend の GITHUB_REPOS 設定順）を保つ。
+    /// 並びは todos の初出順（= backend の GITHUB_REPOS 設定順）を保ち、
+    /// 6 件目以降は「残り N 件を表示」トグルで展開する。
     private func todoRepoSummaries(_ payload: BriefingPayload) -> some View {
         let byRepo = Dictionary(grouping: payload.todos, by: \.repo)
         var repos: [String] = []
@@ -190,8 +194,9 @@ struct HomeView: View {
             (payload.todoSummaries ?? []).map { ($0.repo, $0.summary) },
             uniquingKeysWith: { first, _ in first }
         )
+        let visible = showAllGithubRepos ? repos : Array(repos.prefix(Self.githubCollapseLimit))
         return VStack(alignment: .leading, spacing: 12) {
-            ForEach(repos, id: \.self) { repo in
+            ForEach(visible, id: \.self) { repo in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         RepoTag(repo: repo)
@@ -205,6 +210,21 @@ struct HomeView: View {
                             .lineSpacing(3)
                     }
                 }
+            }
+            if repos.count > Self.githubCollapseLimit {
+                Button {
+                    withAnimation { showAllGithubRepos.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: showAllGithubRepos ? "chevron.up" : "chevron.down")
+                        Text(showAllGithubRepos
+                            ? "折りたたむ"
+                            : "残り \(repos.count - Self.githubCollapseLimit) 件を表示")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.amberAccent)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
