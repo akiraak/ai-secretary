@@ -87,6 +87,14 @@ export interface RepoOverview {
   todoCount: number; // TODO.md の未完了件数（0 = TODO.md 無し）
 }
 
+/** kitchen-living の共有買い物リストの未購入品 1 件 */
+export interface ShoppingItem {
+  name: string;
+  /** 追加元: "recipe"（レシピ由来） | "manual"（手動追加） */
+  origin?: string;
+  createdAt?: string; // ISO8601
+}
+
 /** カレンダーの予定（時刻付きイベント） */
 export interface EventItem {
   /** Google Calendar のイベント ID。変更検知のキー */
@@ -125,6 +133,8 @@ export interface CollectedInput {
   calendarChanges?: CalendarChange[];
   /** 更新順リポジトリ一覧（GitHub タブ用）。コレクタ失敗時は undefined */
   repoOverviews?: RepoOverview[];
+  /** 買い物リストの未購入品。コレクタ失敗・未設定時は undefined */
+  shopping?: ShoppingItem[];
 }
 
 /** briefings.payload_json に格納する構造化ブリーフィング全体 */
@@ -142,6 +152,8 @@ export interface BriefingPayload {
   todoSummaries?: TodoRepoSummary[];
   /** 更新順リポジトリ一覧（GitHub タブ用）。旧 payload には無い */
   repos?: RepoOverview[];
+  /** 買い物リストの未購入品。旧 payload・コレクタ失敗時には無い */
+  shopping?: ShoppingItem[];
   mails: MailItem[];
   github: GithubItem[];
 }

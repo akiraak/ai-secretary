@@ -8,6 +8,7 @@ import { collectCalendar } from './calendar.js';
 import { collectCanvas } from './canvas.js';
 import { collectGithub, collectRepoOverviews } from './github.js';
 import { collectGmail } from './gmail.js';
+import { collectShopping } from './shopping.js';
 import { collectTodos } from './todos.js';
 
 async function main(): Promise<void> {
@@ -105,6 +106,19 @@ async function main(): Promise<void> {
     }
   } catch (e) {
     console.error('[TODO] 失敗:', (e as Error).message);
+  }
+
+  console.log('');
+
+  // --- 買い物リスト ---
+  try {
+    const shopping = await collectShopping();
+    console.log(`[Shopping] 未購入 ${shopping.length} 件`);
+    for (const s of shopping) {
+      console.log(`  🧺 ${s.name}${s.origin === 'recipe' ? '（レシピ）' : ''}`);
+    }
+  } catch (e) {
+    console.error('[Shopping] 失敗:', (e as Error).message);
   }
 }
 

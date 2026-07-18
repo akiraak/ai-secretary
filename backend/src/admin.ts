@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT } from './config.js';
 import { calendarClient } from './auth/google.js';
+import { collectShopping } from './collectors/shopping.js';
 import {
   latestBriefing,
   latestCollectorRunRaw,
@@ -165,6 +166,15 @@ export function getCalendarInfo(): unknown {
     events: { collectedAt: calRun?.created_at ?? null, items: cal.events ?? [] },
     deadlines: { collectedAt: canvasRun?.created_at ?? null, items: deadlines },
   };
+}
+
+/**
+ * 買い物リストページ用（GET /admin/shopping）。
+ * カレンダータブと違い収集結果の保存を経由せず、共有リスト API をライブで叩いて
+ * 常に最新の未購入品を返す（API 1 本で安価なため）。
+ */
+export async function getShoppingList(): Promise<unknown> {
+  return { fetchedAt: new Date().toISOString(), items: await collectShopping() };
 }
 
 /** AI 利用状況の詳細（GET /admin/ai-usage）。 */

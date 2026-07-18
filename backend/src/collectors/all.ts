@@ -3,11 +3,12 @@
 // 生成できるよう、失敗は warnings に落として空リストで続行する。
 import { config } from '../config.js';
 import { briefingDate } from '../util/time.js';
-import type { CollectedInput, RepoOverview } from '../types.js';
+import type { CollectedInput, RepoOverview, ShoppingItem } from '../types.js';
 import { collectCalendar } from './calendar.js';
 import { collectCanvas } from './canvas.js';
 import { collectGithub, collectRepoOverviews } from './github.js';
 import { collectGmail } from './gmail.js';
+import { collectShopping } from './shopping.js';
 import { collectTodos } from './todos.js';
 
 export interface CollectResult {
@@ -28,8 +29,9 @@ export async function collectAll(now: Date): Promise<CollectResult> {
     }
   };
 
-  // repoOverviews は失敗時 undefined のまま（payload.repos を出さず iOS が旧表示にフォールバックする）
-  const [calendar, canvasDeadlines, mailCandidates, github, todos, repoOverviews] =
+  // repoOverviews / shopping は失敗時 undefined のまま
+  // （payload に出さず iOS がフォールバック表示 / セクション非表示にする）
+  const [calendar, canvasDeadlines, mailCandidates, github, todos, repoOverviews, shopping] =
     await Promise.all([
       safe('Calendar', { events: [], todayEvents: [], deadlines: [] }, () => collectCalendar(now)),
       safe('Canvas', [], () => collectCanvas(now)),
@@ -37,6 +39,7 @@ export async function collectAll(now: Date): Promise<CollectResult> {
       safe('GitHub', [], () => collectGithub(now)),
       safe('TODO', [], () => collectTodos()),
       safe<RepoOverview[] | undefined>('GitHubRepos', undefined, () => collectRepoOverviews(now)),
+      safe<ShoppingItem[] | undefined>('Shopping', undefined, () => collectShopping()),
     ]);
 
   // 締切は Canvas + Calendar 終日イベント由来をマージして期日順に。
@@ -55,6 +58,7 @@ export async function collectAll(now: Date): Promise<CollectResult> {
       github,
       mailCandidates,
       repoOverviews,
+      shopping,
     },
     warnings,
   };

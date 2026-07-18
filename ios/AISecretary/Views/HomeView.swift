@@ -1,5 +1,5 @@
 // HOME = 案A 統合フィード。LLM 要約カード + 緊急順セクション
-// （要対応 → 締切が近い(Canvas) → カレンダー(直近7日) → GitHub(TODO サマリー)）を 1 画面スクロール。
+// （要対応 → 締切が近い(Canvas) → カレンダー(直近7日) → 買い物リスト → GitHub(TODO サマリー)）を 1 画面スクロール。
 // 「昨日の GitHub」（commits/PR 集計）は GitHub タブへ集約済み（HOME には出さない）。
 // 参照: docs/specs/ios-app-screens.md「3. 今日のブリーフィング」
 import SwiftUI
@@ -142,6 +142,15 @@ struct HomeView: View {
             }
         }
 
+        // 買い物リスト（kitchen-living の未購入品）。旧 payload・コレクタ失敗・空なら非表示
+        if let shopping = payload.shopping, !shopping.isEmpty {
+            SectionCard(title: "買い物リスト") {
+                ForEach(shopping.indices, id: \.self) { i in
+                    shoppingRow(shopping[i])
+                }
+            }
+        }
+
         SectionCard(title: "GitHub", linkTab: .github) {
             if payload.todos.isEmpty {
                 EmptyRow(message: "TODO は登録されていません")
@@ -227,6 +236,23 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    /// 買い物リストの 1 行（品名のみ。書き戻し API が無いためチェック操作は持たない）
+    private func shoppingRow(_ item: ShoppingItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "basket")
+                .font(.caption)
+                .foregroundStyle(Color.coralAccent)
+            Text(item.name)
+                .font(.subheadline)
+            if item.origin == "recipe" {
+                Text("レシピ")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
         }
     }
 

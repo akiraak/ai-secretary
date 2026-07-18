@@ -150,6 +150,7 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
       events: input.events,
       calendarChanges: input.calendarChanges ?? [],
       todos: input.todos,
+      shopping: input.shopping,
       mails,
       github: input.github,
     },

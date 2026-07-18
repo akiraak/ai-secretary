@@ -28,8 +28,18 @@ struct BriefingPayload: Codable, Equatable {
     let todoSummaries: [TodoRepoSummary]?
     /// 更新順リポジトリ一覧（GitHub タブ用）。旧 payload には無い
     let repos: [RepoOverview]?
+    /// 買い物リストの未購入品。旧 payload・コレクタ失敗時には無い
+    let shopping: [ShoppingItem]?
     let mails: [MailItem]
     let github: [GithubItem]
+}
+
+/// kitchen-living の共有買い物リストの未購入品 1 件
+struct ShoppingItem: Codable, Equatable {
+    let name: String
+    /// 追加元: "recipe"（レシピ由来） | "manual"（手動追加）
+    let origin: String?
+    let createdAt: String? // ISO8601
 }
 
 /// Canvas / Calendar から抽出した締切

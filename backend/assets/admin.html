@@ -87,6 +87,7 @@
     <nav>
       <a href="#" class="active" data-page="dashboard">ダッシュボード</a>
       <a href="#" data-page="calendar">カレンダー</a>
+      <a href="#" data-page="shopping">買い物リスト</a>
       <a href="#" data-page="ai">AI 利用状況</a>
     </nav>
     <div class="foot">
@@ -158,6 +159,17 @@
     <h2>今後の締切 <span class="faint mono" id="calDeadlinesAt"></span></h2>
     <div class="card" id="calDeadlinesCard"><div class="empty">（なし）</div></div>
     <p class="page-sub" style="margin-top:8px">チェック = 手動完了（Canvas 締切のみ。翌朝のブリーフィング通知から除外されます）</p>
+    </section>
+
+    <section id="page-shopping" hidden>
+    <h1>買い物リスト</h1>
+    <p class="page-sub" id="shoppingSub">未読み込み</p>
+
+    <h2>未購入 <span class="faint mono" id="shoppingAt"></span></h2>
+    <div class="card" id="shoppingCard"><div class="empty">（なし）</div></div>
+    <div class="run-row" style="margin-top:10px">
+      <button class="btn btn-secondary" id="shoppingReloadBtn">再読み込み</button>
+    </div>
     </section>
 
     <section id="page-ai" hidden>
@@ -353,6 +365,27 @@ async function refreshCalendar() {
   });
 }
 
+// 買い物リストタブ（GET /admin/shopping。共有リスト API をライブ取得）
+async function refreshShopping() {
+  $('shoppingSub').textContent = '読み込み中…';
+  let d;
+  try {
+    d = await api('/admin/shopping');
+  } catch (e) {
+    $('shoppingSub').textContent = e.message;
+    return;
+  }
+  $('shoppingSub').textContent = `未購入 ${d.items.length} 件（kitchen-living の共有リストをライブ取得）`;
+  $('shoppingAt').textContent = `取得 ${seattle(d.fetchedAt)}`;
+
+  renderTable($('shoppingCard'), d.items, ['品名', '追加元', '追加日時'], (r) => `
+    <td>${esc(r.name)}</td>
+    <td class="dim">${r.origin === 'recipe' ? 'レシピ' : r.origin === 'manual' ? '手動' : esc(r.origin ?? '')}</td>
+    <td class="mono dim">${r.createdAt ? seattle(r.createdAt) : ''}</td>`);
+}
+
+$('shoppingReloadBtn').onclick = refreshShopping;
+
 // AI 利用状況タブ（GET /admin/ai-usage）
 async function refreshAi() {
   $('aiSub').textContent = '読み込み中…';
@@ -393,8 +426,8 @@ async function refreshAi() {
 }
 
 // サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
-const PAGES = ['dashboard', 'calendar', 'ai'];
-const PAGE_REFRESH = { calendar: refreshCalendar, ai: refreshAi };
+const PAGES = ['dashboard', 'calendar', 'shopping', 'ai'];
+const PAGE_REFRESH = { calendar: refreshCalendar, shopping: refreshShopping, ai: refreshAi };
 let currentPage = 'dashboard';
 
 function showPage(page) {

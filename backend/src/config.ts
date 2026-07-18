@@ -48,6 +48,10 @@ export const config = {
     // 締切を先読みする日数（今日から N 日後 00:00 まで）
     lookaheadDays: Number.parseInt(withDefault('CANVAS_LOOKAHEAD_DAYS', '14'), 10),
   },
+  shopping: {
+    // kitchen-living の共有買い物リスト JSON API（トークン付き URL）
+    listUrl: optional('SHOPPING_LIST_URL'),
+  },
   github: {
     token: optional('GITHUB_TOKEN'),
     repos: (optional('GITHUB_REPOS') ?? '')
