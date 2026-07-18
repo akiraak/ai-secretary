@@ -101,7 +101,7 @@ struct CalendarTabView: View {
                     Image(systemName: "chevron.left").font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.amberAccent)
+                .foregroundStyle(Color.coralAccent)
                 Spacer()
                 Text(Self.monthTitleFmt.string(from: monthAnchor))
                     .font(.subheadline.weight(.bold))
@@ -110,7 +110,7 @@ struct CalendarTabView: View {
                     Image(systemName: "chevron.right").font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.amberAccent)
+                .foregroundStyle(Color.coralAccent)
             }
             .padding(.horizontal, 4)
 
@@ -147,14 +147,14 @@ struct CalendarTabView: View {
             }
             Text("\(calendar.component(.day, from: day))")
                 .font(.subheadline.monospacedDigit().weight(selected || isToday ? .bold : .regular))
-                .foregroundStyle(selected ? .white : (isToday ? Color.amberAccent : .primary))
+                .foregroundStyle(selected ? .white : (isToday ? Color.coralAccent : .primary))
                 .frame(width: 32, height: 32)
                 .background(
-                    selected ? Color.amberAccent : (isToday ? Color.amberAccent.opacity(0.15) : .clear),
+                    selected ? Color.coralAccent : (isToday ? Color.coralAccent.opacity(0.15) : .clear),
                     in: Circle()
                 )
             HStack(spacing: 3) {
-                if hasEvents { Circle().fill(Color.amberAccent).frame(width: 4, height: 4) }
+                if hasEvents { Circle().fill(Color.coralAccent).frame(width: 4, height: 4) }
                 if hasDeadlines { Circle().fill(Color.deadlineRed).frame(width: 4, height: 4) }
             }
             .frame(height: 4)
@@ -212,7 +212,7 @@ struct CalendarTabView: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(BriefingDate.timeLabel(event.startAt))
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(Color.amberAccent)
+                .foregroundStyle(Color.coralAccent)
                 .frame(width: 52, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {

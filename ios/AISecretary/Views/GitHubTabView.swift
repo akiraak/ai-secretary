@@ -64,7 +64,7 @@ struct GitHubTabView: View {
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Image(systemName: item.kind == "pr" ? "arrow.triangle.pull" : "smallcircle.filled.circle")
                                     .font(.caption)
-                                    .foregroundStyle(item.kind == "pr" ? Color.amberAccent : Color.secondary)
+                                    .foregroundStyle(item.kind == "pr" ? Color.coralAccent : Color.secondary)
                                 if let urlString = item.url, let url = URL(string: urlString) {
                                     Link(item.title, destination: url)
                                         .font(.subheadline)

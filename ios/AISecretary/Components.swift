@@ -1,7 +1,7 @@
 // 画面横断で使う小さな表示部品（残日数ピル / リポジトリタグ / セクションカード / 空表示）。
 import SwiftUI
 
-/// 締切の残日数ピル。2日以内は赤、それ以外は琥珀
+/// 締切の残日数ピル。2日以内は赤、それ以外はグレー（アクセントが赤系のため緊急色と分離）
 struct DuePill: View {
     let dueAt: String
 
@@ -13,7 +13,7 @@ struct DuePill: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(urgent ? Color.deadlineRed : Color.amberAccent, in: Capsule())
+            .background(urgent ? Color.deadlineRed : Color.neutralPill, in: Capsule())
     }
 }
 
@@ -69,7 +69,7 @@ struct SectionCard<Content: View>: View {
     }
 }
 
-/// 前回ブリーフィング以降の変更バッジ（新規=緑 / 変更=琥珀）。
+/// 前回ブリーフィング以降の変更バッジ（新規=緑 / 変更=コーラル）。
 /// EventItem.changed / DeadlineItem.changed ("new" | "updated") に対応
 struct ChangeBadge: View {
     let changed: String
@@ -80,7 +80,7 @@ struct ChangeBadge: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
-            .background(changed == "new" ? Color.doneGreen : Color.amberAccent, in: Capsule())
+            .background(changed == "new" ? Color.doneGreen : Color.coralAccent, in: Capsule())
     }
 }
 

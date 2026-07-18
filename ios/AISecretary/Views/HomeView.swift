@@ -80,7 +80,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("今日のまとめ", systemImage: "sun.horizon.fill")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Color.amberAccent)
+                .foregroundStyle(Color.coralAccent)
             if let title = briefing.title, !title.isEmpty {
                 Text(title).font(.headline)
             }
@@ -90,7 +90,7 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color.amberAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.coralAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: セクション（緊急順）
@@ -223,7 +223,7 @@ struct HomeView: View {
                             : "残り \(repos.count - Self.githubCollapseLimit) 件を表示")
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.amberAccent)
+                    .foregroundStyle(Color.coralAccent)
                 }
                 .buttonStyle(.plain)
             }
@@ -247,7 +247,7 @@ struct HomeView: View {
                     .strikethrough(done)
                     .foregroundStyle(done ? .secondary : .primary)
                 Text(item.from).font(.caption).foregroundStyle(.secondary)
-                Text(item.reason).font(.caption).foregroundStyle(Color.amberAccent)
+                Text(item.reason).font(.caption).foregroundStyle(Color.coralAccent)
             }
             Spacer()
             if let link = item.gmailLink, let url = URL(string: link) {

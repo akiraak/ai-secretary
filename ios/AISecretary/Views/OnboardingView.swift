@@ -10,10 +10,11 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Image(systemName: "sun.horizon.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.amberAccent)
-                .padding(.bottom, 16)
+            Image("Secretary")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 140, height: 140)
+                .padding(.bottom, 8)
 
             Text("AI秘書")
                 .font(.largeTitle.bold())
@@ -72,7 +73,7 @@ struct OnboardingView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(Color.amberAccent)
+                .foregroundStyle(Color.coralAccent)
                 .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)

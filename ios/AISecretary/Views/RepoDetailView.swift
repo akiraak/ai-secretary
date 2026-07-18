@@ -144,7 +144,7 @@ struct RepoDetailView: View {
                 Text(isOpen.wrappedValue ? "折りたたむ" : "残り \(hiddenCount) 件を表示")
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.amberAccent)
+            .foregroundStyle(Color.coralAccent)
         }
         .buttonStyle(.plain)
     }
@@ -158,7 +158,7 @@ struct RepoDetailView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: item.kind == "pr" ? "arrow.triangle.pull" : "smallcircle.filled.circle")
                         .font(.caption)
-                        .foregroundStyle(item.kind == "pr" ? Color.amberAccent : Color.secondary)
+                        .foregroundStyle(item.kind == "pr" ? Color.coralAccent : Color.secondary)
                     if let urlString = item.url, let url = URL(string: urlString) {
                         Link(item.title, destination: url)
                             .font(.subheadline)

@@ -15,7 +15,7 @@ struct AISecretaryApp: App {
                 }
             }
             .environment(state)
-            .tint(.amberAccent)
+            .tint(.coralAccent)
         }
     }
 }
