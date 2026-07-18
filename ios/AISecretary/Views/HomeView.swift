@@ -97,14 +97,6 @@ struct HomeView: View {
         let actionMails = payload.mails.filter { $0.priority == "action" }
         let infoMails = payload.mails.filter { $0.priority != "action" }
 
-        if let changes = payload.calendarChanges, !changes.isEmpty {
-            SectionCard(title: "カレンダーの変更", linkTab: .calendar) {
-                ForEach(changes.indices, id: \.self) { i in
-                    CalendarChangeRow(change: changes[i])
-                }
-            }
-        }
-
         // 締切 = Canvas 課題のみ（14 日先まで収集）。Google カレンダー終日は下の別グループへ。
         // HOME は「今やるべきこと」のみ表示。完了済みはカレンダータブで確認・解除できる
         let deadlines = payload.deadlines.filter { $0.source == "canvas" && !state.isDeadlineCompleted($0) }

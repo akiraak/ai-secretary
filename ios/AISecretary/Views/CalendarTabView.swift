@@ -1,4 +1,4 @@
-// Calendar タブ = 週/月カレンダー + 選択日の予定・締切 + カレンダーの変更 + 今後の締切一覧。
+// Calendar タブ = 週/月カレンダー + 選択日の予定・締切 + 今後の締切一覧。
 // データ源は payload.events（収集窓 CALENDAR_LOOKAHEAD_DAYS 分。旧 payload は todayEvents に
 // フォールバック）+ payload.deadlines。参照: docs/specs/ios-app-screens.md
 import SwiftUI
@@ -17,7 +17,6 @@ struct CalendarTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                changesSection
                 calendarSection
                 selectedDaySection
                 deadlinesSection
@@ -61,19 +60,6 @@ struct CalendarTabView: View {
             if let day = dayKey(d.dueAt) { dict[day, default: []].append(d) }
         }
         return dict
-    }
-
-    // MARK: カレンダーの変更（前回ブリーフィング以降）
-
-    @ViewBuilder
-    private var changesSection: some View {
-        if let changes = payload?.calendarChanges, !changes.isEmpty {
-            Section("カレンダーの変更") {
-                ForEach(changes.indices, id: \.self) { i in
-                    CalendarChangeRow(change: changes[i])
-                }
-            }
-        }
     }
 
     // MARK: 週/月カレンダー

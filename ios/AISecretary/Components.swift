@@ -84,48 +84,6 @@ struct ChangeBadge: View {
     }
 }
 
-/// カレンダー変更一覧の 1 行（HOME のカードと Calendar タブで共用）
-struct CalendarChangeRow: View {
-    let change: CalendarChange
-
-    private var kindLabel: String {
-        switch change.kind {
-        case "new": return "新規"
-        case "updated": return "変更"
-        default: return "削除"
-        }
-    }
-
-    private var kindColor: Color {
-        switch change.kind {
-        case "new": return .doneGreen
-        case "updated": return .amberAccent
-        default: return .deadlineRed
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(kindLabel)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(kindColor, in: Capsule())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(change.title)
-                    .font(.subheadline)
-                    .strikethrough(change.kind == "removed")
-                    .foregroundStyle(change.kind == "removed" ? .secondary : .primary)
-                if let detail = change.detail, !detail.isEmpty {
-                    Text(detail).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
-    }
-}
-
 /// データがないときの控えめな空表示
 struct EmptyRow: View {
     let message: String
