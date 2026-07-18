@@ -19,7 +19,12 @@ import {
 } from './db/repo.js';
 import { config } from './config.js';
 import type { DeadlineItem, EventItem } from './types.js';
-import { resolveCalendarIds, saveCalendarIds } from './settings.js';
+import {
+  getCanvasLookaheadDays,
+  resolveCalendarIds,
+  saveCalendarIds,
+  saveCanvasLookaheadDays,
+} from './settings.js';
 
 const BRIEFING_SCRIPT = path.join(BACKEND_ROOT, 'scripts', 'cron-briefing.sh');
 const LOG_DIR = path.join(BACKEND_ROOT, 'logs');
@@ -114,6 +119,17 @@ export async function listCalendars(): Promise<AdminCalendar[]> {
 /** 収集対象カレンダーを保存する（PUT /admin/calendars）。 */
 export function updateCalendars(ids: string[]): void {
   saveCalendarIds(ids);
+}
+
+/** 管理画面の収集設定（GET /admin/settings）。 */
+export function getAdminSettings(): unknown {
+  const canvas = getCanvasLookaheadDays();
+  return { canvasLookaheadDays: canvas.value, canvasLookaheadDaysSource: canvas.source };
+}
+
+/** Canvas 締切の先読み日数を保存する（PUT /admin/settings）。 */
+export function updateCanvasLookaheadDays(days: number): void {
+  saveCanvasLookaheadDays(days);
 }
 
 /** raw_json を安全にパースする（壊れていたら fallback）。 */

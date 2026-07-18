@@ -2,11 +2,12 @@
 // Canvas のカレンダーフィードは課題の締切を VEVENT（DTSTART = 締切日時）として配信する。
 // SUMMARY は「課題名 [コース名]」形式のため、コース名を分離して DeadlineItem にする。
 import { config } from '../config.js';
+import { resolveCanvasLookaheadDays } from '../settings.js';
 import { parseIcs } from '../util/ics.js';
 import { briefingDate, tzLocalToInstant, tzYmd } from '../util/time.js';
 import type { DeadlineItem } from '../types.js';
 
-/** now を基準に、今日(tz)から lookaheadDays 日以内の締切を取得する。 */
+/** now を基準に、今日(tz)から先読み日数（DB 設定 or .env）以内の締切を取得する。 */
 export async function collectCanvas(now: Date = new Date()): Promise<DeadlineItem[]> {
   const url = config.canvas.icalUrl;
   if (!url) {
@@ -20,18 +21,18 @@ export async function collectCanvas(now: Date = new Date()): Promise<DeadlineIte
     throw new Error(`Canvas iCal フィードの取得に失敗しました: HTTP ${res.status}`);
   }
   const text = await res.text();
-  return extractDeadlines(text, now);
+  return extractDeadlines(text, now, resolveCanvasLookaheadDays());
 }
 
-/** .ics テキストから抽出する部分（フェッチと分離しテスト可能にする）。 */
-export function extractDeadlines(icsText: string, now: Date): DeadlineItem[] {
+/** .ics テキストから抽出する部分（フェッチ・DB 設定と分離しテスト可能にする）。 */
+export function extractDeadlines(icsText: string, now: Date, lookaheadDays: number): DeadlineItem[] {
   const tz = config.briefing.tz;
   const events = parseIcs(icsText, tz);
 
   // 締切ウィンドウ: 今日(tz) 00:00 〜 lookaheadDays 日後 00:00（過ぎた締切は拾わない）
   const { year, month, day } = tzYmd(now, tz);
   const windowStart = tzLocalToInstant(year, month, day, 0, tz);
-  const windowEnd = tzLocalToInstant(year, month, day + config.canvas.lookaheadDays, 0, tz);
+  const windowEnd = tzLocalToInstant(year, month, day + lookaheadDays, 0, tz);
   const startDate = briefingDate(windowStart, tz);
   const endDate = briefingDate(windowEnd, tz);
 

@@ -68,6 +68,10 @@
   .btn-primary:disabled { opacity: 0.5; cursor: default; }
   .btn-secondary { background: transparent; color: #38BDF8; border-color: rgba(56,189,248,0.45); }
   .run-row { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; }
+  .num-input {
+    width: 64px; padding: 6px 8px; font: inherit; font-size: 12.5px; text-align: right;
+    background: #0C1116; color: #E6EDF3; border: 1px solid #1F2A35; border-radius: 6px;
+  }
   .briefing-block {
     font-size: 14px; line-height: 1.7; border: 1px solid #1F2A35; border-radius: 8px;
     padding: 16px 20px; background: #111820;
@@ -120,6 +124,15 @@
       <button class="btn btn-secondary" id="calLoadBtn">一覧を読み込み</button>
       <button class="btn btn-primary" id="calSaveBtn" disabled>選択を保存</button>
       <span class="dim" id="calMsg"></span>
+    </div>
+
+    <h2>収集設定</h2>
+    <div class="run-row">
+      <label for="canvasDays">Canvas 締切の先読み日数</label>
+      <input type="number" class="num-input" id="canvasDays" min="1" max="60">
+      <span class="dim">日先まで</span>
+      <button class="btn btn-primary" id="canvasDaysSaveBtn">保存</button>
+      <span class="dim" id="canvasDaysMsg"></span>
     </div>
 
     <h2>直近の push</h2>
@@ -450,9 +463,39 @@ $('calSaveBtn').onclick = async () => {
   }
 };
 
+// 収集設定（GET/PUT /admin/settings）: 編集中の上書きを避けるため 3 秒ポーリングには含めず、
+// 認証時に一度だけ読み込む
+async function refreshSettings() {
+  try {
+    const r = await api('/admin/settings');
+    $('canvasDays').value = r.canvasLookaheadDays;
+    $('canvasDaysMsg').textContent =
+      r.canvasLookaheadDaysSource === 'db' ? '' : '現在は .env の値（保存すると DB 設定が優先されます）';
+  } catch (e) {
+    $('canvasDaysMsg').textContent = e.message;
+  }
+}
+
+$('canvasDaysSaveBtn').onclick = async () => {
+  $('canvasDaysSaveBtn').disabled = true;
+  try {
+    await api('/admin/settings', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ canvasLookaheadDays: Number($('canvasDays').value) }),
+    });
+    $('canvasDaysMsg').textContent = '保存しました（次回ブリーフィングから反映）';
+  } catch (e) {
+    $('canvasDaysMsg').textContent = e.message;
+  } finally {
+    $('canvasDaysSaveBtn').disabled = false;
+  }
+};
+
 $('saveBtn').onclick = () => {
   localStorage.setItem('adminSecret', $('secret').value.trim());
   refresh();
+  refreshSettings();
   PAGE_REFRESH[currentPage]?.();
 };
 
@@ -467,7 +510,10 @@ $('runBtn').onclick = async () => {
 };
 
 $('secret').value = secret();
-if (secret()) refresh();
+if (secret()) {
+  refresh();
+  refreshSettings();
+}
 </script>
 </body>
 </html>

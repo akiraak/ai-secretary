@@ -8,6 +8,8 @@
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
 //   GET  /admin/calendar-info — カレンダータブ用（今日の予定 + 締切と完了状態）
+//   GET/PUT /admin/calendars  — 収集対象カレンダーの一覧・保存
+//   GET/PUT /admin/settings   — 収集設定（Canvas 締切の先読み日数）
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
 // /admin* は ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。本番は前段の
 // Cloudflare Access で /admin を保護してから有効化する。
@@ -25,13 +27,16 @@ import {
   upsertDevice,
 } from './db/repo.js';
 import {
+  getAdminSettings,
   getAiUsage,
   getCalendarInfo,
   getStatus,
   listCalendars,
   runBriefing,
   updateCalendars,
+  updateCanvasLookaheadDays,
 } from './admin.js';
+import { CANVAS_LOOKAHEAD_MAX, CANVAS_LOOKAHEAD_MIN } from './settings.js';
 import type { BriefingPayload, DeadlineItem } from './types.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -117,6 +122,30 @@ function handleUpdateCalendars(body: string, res: http.ServerResponse): void {
   }
   updateCalendars(ids);
   sendJson(res, 200, { ok: true, ids });
+}
+
+function handleUpdateSettings(body: string, res: http.ServerResponse): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { canvasLookaheadDays } = parsed as { canvasLookaheadDays?: unknown };
+  if (
+    typeof canvasLookaheadDays !== 'number' ||
+    !Number.isInteger(canvasLookaheadDays) ||
+    canvasLookaheadDays < CANVAS_LOOKAHEAD_MIN ||
+    canvasLookaheadDays > CANVAS_LOOKAHEAD_MAX
+  ) {
+    sendJson(res, 400, {
+      error: `canvasLookaheadDays は ${CANVAS_LOOKAHEAD_MIN}〜${CANVAS_LOOKAHEAD_MAX} の整数で指定してください`,
+    });
+    return;
+  }
+  updateCanvasLookaheadDays(canvasLookaheadDays);
+  sendJson(res, 200, { ok: true, canvasLookaheadDays });
 }
 
 // Canvas の ics UID は event-assignment-<id> 形式。それ以外（calendar 由来等）は対象外
@@ -350,6 +379,20 @@ export function createServer(secret: string): http.Server {
         if (req.method === 'PUT') {
           const body = await readBody(req, res);
           if (body !== null) handleUpdateCalendars(body, res);
+          return;
+        }
+        sendJson(res, 405, { error: 'GET または PUT を使ってください' });
+        return;
+      }
+
+      if (path === '/admin/settings') {
+        if (req.method === 'GET') {
+          sendJson(res, 200, getAdminSettings());
+          return;
+        }
+        if (req.method === 'PUT') {
+          const body = await readBody(req, res);
+          if (body !== null) handleUpdateSettings(body, res);
           return;
         }
         sendJson(res, 405, { error: 'GET または PUT を使ってください' });

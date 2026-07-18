@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 
 -- 管理画面から変更できる設定（key-value）。値は JSON 文字列
 -- google_calendar_ids: 収集対象カレンダー ID の JSON 配列（無ければ .env の GOOGLE_CALENDAR_IDS）
+-- canvas_lookahead_days: Canvas 締切の先読み日数（JSON 数値。無ければ .env の CANVAS_LOOKAHEAD_DAYS）
 CREATE TABLE IF NOT EXISTS settings (
   key        TEXT PRIMARY KEY,
   value      TEXT NOT NULL,
