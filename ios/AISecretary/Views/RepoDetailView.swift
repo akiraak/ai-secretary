@@ -7,6 +7,11 @@ struct RepoDetailView: View {
     @Environment(AppState.self) private var state
     let overview: RepoOverview
 
+    /// TODO / コミット一覧の折りたたみ閾値（超過分はトグルで展開）
+    private static let collapseLimit = 5
+    @State private var showAllTodos = false
+    @State private var showAllCommits = false
+
     private var payload: BriefingPayload? { state.briefing?.payload }
 
     /// owner/name の name 部分（画面タイトル用）
@@ -28,10 +33,10 @@ struct RepoDetailView: View {
     var body: some View {
         List {
             headerSection
-            recentSection
             if overview.todoSummary != nil || !todos.isEmpty {
                 todoSection
             }
+            recentSection
             if !yesterdayItems.isEmpty {
                 yesterdaySection
             }
@@ -74,8 +79,12 @@ struct RepoDetailView: View {
             if overview.commits.isEmpty {
                 EmptyRow(message: "直近のコミットはありません")
             } else {
-                ForEach(overview.commits.indices, id: \.self) { i in
-                    commitRow(overview.commits[i])
+                let visible = showAllCommits ? overview.commits : Array(overview.commits.prefix(Self.collapseLimit))
+                ForEach(visible.indices, id: \.self) { i in
+                    commitRow(visible[i])
+                }
+                if overview.commits.count > Self.collapseLimit {
+                    expandButton(isOpen: $showAllCommits, hiddenCount: overview.commits.count - Self.collapseLimit)
                 }
             }
         }
@@ -109,16 +118,35 @@ struct RepoDetailView: View {
                     .font(.subheadline)
                     .lineSpacing(3)
             }
-            ForEach(todos.indices, id: \.self) { i in
+            let visible = showAllTodos ? todos : Array(todos.prefix(Self.collapseLimit))
+            ForEach(visible.indices, id: \.self) { i in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: "circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(todos[i].text)
+                    Text(visible[i].text)
                         .font(.subheadline)
                 }
             }
+            if todos.count > Self.collapseLimit {
+                expandButton(isOpen: $showAllTodos, hiddenCount: todos.count - Self.collapseLimit)
+            }
         }
+    }
+
+    /// 6 件目以降の展開/折りたたみトグル（TODO / コミット一覧で共用）
+    private func expandButton(isOpen: Binding<Bool>, hiddenCount: Int) -> some View {
+        Button {
+            withAnimation { isOpen.wrappedValue.toggle() }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: isOpen.wrappedValue ? "chevron.up" : "chevron.down")
+                Text(isOpen.wrappedValue ? "折りたたむ" : "残り \(hiddenCount) 件を表示")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.amberAccent)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 昨日の活動（commits / PR）
