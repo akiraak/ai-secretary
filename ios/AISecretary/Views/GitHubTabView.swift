@@ -36,7 +36,11 @@ struct GitHubTabView: View {
                     (BriefingDate.parse($0.pushedAt) ?? .distantPast) > (BriefingDate.parse($1.pushedAt) ?? .distantPast)
                 }
                 ForEach(sorted, id: \.repo) { repo in
-                    RepoOverviewRow(overview: repo)
+                    NavigationLink {
+                        RepoDetailView(overview: repo)
+                    } label: {
+                        RepoOverviewRow(overview: repo)
+                    }
                 }
             }
         }

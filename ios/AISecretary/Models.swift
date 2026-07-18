@@ -185,6 +185,15 @@ enum BriefingDate {
         }
     }
 
+    /// "M/d" 表記（リポジトリ詳細のコミット日付用）
+    static func shortDateLabel(_ s: String) -> String {
+        guard let date = parse(s) else { return "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "M/d"
+        return f.string(from: date)
+    }
+
     /// "HH:mm" 表記（日付のみなら「終日」）
     static func timeLabel(_ s: String) -> String {
         if isDateOnly(s) { return "終日" }
