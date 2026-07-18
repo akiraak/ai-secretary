@@ -182,6 +182,26 @@ export function saveTodoSummaryCache(hash: string, summary: string): void {
   db.prepare("DELETE FROM todo_summary_cache WHERE created_at < datetime('now', '-30 days')").run();
 }
 
+/** 直近作業サマリーのキャッシュを引く。無ければ undefined。 */
+export function getRepoSummaryCache(hash: string): string | undefined {
+  const row = getDb()
+    .prepare('SELECT summary FROM repo_summary_cache WHERE hash = ?')
+    .get(hash) as { summary: string } | undefined;
+  return row?.summary;
+}
+
+/** 直近作業サマリーをキャッシュに保存し、30 日超の古い行を掃除する。 */
+export function saveRepoSummaryCache(hash: string, summary: string): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO repo_summary_cache (hash, summary) VALUES (?, ?)
+     ON CONFLICT(hash) DO UPDATE SET
+       summary = excluded.summary,
+       created_at = datetime('now')`,
+  ).run(hash, summary);
+  db.prepare("DELETE FROM repo_summary_cache WHERE created_at < datetime('now', '-30 days')").run();
+}
+
 /** calendar_items の 1 行（変更検知用スナップショット） */
 export interface CalendarItemRow {
   key: string;

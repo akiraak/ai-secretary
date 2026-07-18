@@ -4,20 +4,29 @@ import { config } from '../config.js';
 import { closeDb } from '../db/index.js';
 import {
   cleanupDeadlineCompletions,
+  getRepoSummaryCache,
   getTodoSummaryCache,
   insertBriefing,
   insertCollectorRun,
   insertLlmUsage,
   listCompletedDeadlineUids,
+  saveRepoSummaryCache,
   saveTodoSummaryCache,
 } from '../db/repo.js';
 import { collectAll } from '../collectors/all.js';
 import { annotateChanges, detectCalendarChanges } from './calendarDiff.js';
 import { generateBriefing } from '../llm/briefing.js';
+import { generateRepoSummary, hashRepoCommits } from '../llm/repoSummary.js';
 import { generateTodoSummary, hashTodos } from '../llm/todoSummary.js';
 import { pushBriefingToDevices } from '../push/briefingPush.js';
 import { briefingDate } from '../util/time.js';
-import type { CollectedInput, DeadlineItem, TodoItem, TodoRepoSummary } from '../types.js';
+import type {
+  CollectedInput,
+  DeadlineItem,
+  RepoOverview,
+  TodoItem,
+  TodoRepoSummary,
+} from '../types.js';
 
 /** 完了行を掃除するまでの日数（フィードは過去の課題を含み続けるため期日基準で消す） */
 const COMPLETION_RETENTION_DAYS = 60;
@@ -76,6 +85,72 @@ export async function resolveTodoSummaries(
     }
   }
   return results.length > 0 ? results : undefined;
+}
+
+/**
+ * リポジトリごとに直近作業サマリーを取得する（GitHub タブ用）。
+ * そのリポジトリのコミット一覧が前回と同一（= push 無し）ならキャッシュを返し LLM を呼ばない。
+ * 生成失敗はブリーフィング全体を止めず、そのリポジトリの recentSummary 無しで続行する
+ * （iOS 側はコミット一覧のみ表示にフォールバック）。コミット 0 件のリポジトリはスキップ。
+ */
+export async function resolveRepoSummaries(
+  overviews: RepoOverview[] | undefined,
+  date: string,
+): Promise<Map<string, string>> {
+  const results = new Map<string, string>();
+  for (const o of overviews ?? []) {
+    if (o.commits.length === 0) continue;
+    const hash = hashRepoCommits(o.repo, o.commits);
+    const cached = getRepoSummaryCache(hash);
+    if (cached !== undefined) {
+      console.log(`直近作業サマリー (${o.repo}): 前回から変更なし（キャッシュ使用・LLM 呼び出しなし）`);
+      results.set(o.repo, cached);
+      continue;
+    }
+    try {
+      const { summary, usage } = await generateRepoSummary(o.repo, o.commits);
+      insertLlmUsage({ briefingDate: date, purpose: 'repo_summary', ...usage });
+      saveRepoSummaryCache(hash, summary);
+      console.log(
+        `直近作業サマリー生成 (${o.repo}): ${usage.model} 入力 ${usage.inputTokens} / 出力 ${usage.outputTokens} トークン` +
+          (usage.costUsd != null ? ` ($${usage.costUsd.toFixed(4)})` : ''),
+      );
+      results.set(o.repo, summary);
+    } catch (e) {
+      console.warn(`⚠ 直近作業サマリー生成に失敗しました (${o.repo}): ${(e as Error).message}`);
+    }
+  }
+  return results;
+}
+
+/**
+ * payload.repos を組み立てる: リポジトリ一覧に直近作業サマリーと TODO 系フィールドを join する。
+ * todos 側のラベルはリモートが `owner/repo`・ローカルパスが basename なので、
+ * 完全一致 → name 部分一致の順で解決し、iOS はここで確定した todoRepo で payload.todos を引くだけにする。
+ */
+export function buildRepoPayload(
+  overviews: RepoOverview[] | undefined,
+  recentSummaries: Map<string, string>,
+  todos: TodoItem[],
+  todoSummaries: TodoRepoSummary[] | undefined,
+): RepoOverview[] | undefined {
+  if (!overviews) return undefined;
+  const todoCounts = new Map<string, number>();
+  for (const t of todos) todoCounts.set(t.repo, (todoCounts.get(t.repo) ?? 0) + 1);
+  const labels = [...todoCounts.keys()];
+  return overviews.map((o) => {
+    const name = o.repo.split('/')[1] ?? o.repo;
+    const todoRepo = labels.find((l) => l === o.repo) ?? labels.find((l) => l === name);
+    return {
+      ...o,
+      recentSummary: recentSummaries.get(o.repo),
+      todoRepo,
+      todoSummary: todoRepo
+        ? todoSummaries?.find((s) => s.repo === todoRepo)?.summary
+        : undefined,
+      todoCount: todoRepo ? (todoCounts.get(todoRepo) ?? 0) : 0,
+    };
+  });
 }
 
 /**
@@ -162,10 +237,17 @@ async function main(): Promise<void> {
   }
 
   const todoSummaries = await resolveTodoSummaries(input.todos, input.date);
+  const repoSummaries = await resolveRepoSummaries(input.repoOverviews, input.date);
 
   const briefing = await generateBriefing({ ...input, deadlines: active });
   briefing.payload.deadlines = annotated;
   briefing.payload.todoSummaries = todoSummaries;
+  briefing.payload.repos = buildRepoPayload(
+    input.repoOverviews,
+    repoSummaries,
+    input.todos,
+    todoSummaries,
+  );
   insertLlmUsage({ briefingDate: input.date, purpose: 'briefing', ...briefing.usage });
   console.log(
     `LLM: ${briefing.usage.model} 入力 ${briefing.usage.inputTokens} / 出力 ${briefing.usage.outputTokens} トークン` +

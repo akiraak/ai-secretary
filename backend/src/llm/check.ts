@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { briefingDate } from '../util/time.js';
 import { collectAll } from '../collectors/all.js';
 import { generateBriefing } from './briefing.js';
+import { generateRepoSummary } from './repoSummary.js';
 import { generateTodoSummary } from './todoSummary.js';
 import type { CollectedInput } from '../types.js';
 
@@ -38,6 +39,26 @@ function fixtureInput(now: Date): CollectedInput {
     github: [
       { repo: 'akiraak/ai-secretary', kind: 'commit', title: 'MVP Step 3.5: GitHub コレクタを追加' },
       { repo: 'akiraak/ai-secretary', kind: 'pr', title: 'PR #12 をマージ: Canvas コレクタ' },
+    ],
+    repoOverviews: [
+      {
+        repo: 'akiraak/ai-secretary',
+        url: 'https://github.com/akiraak/ai-secretary',
+        pushedAt: iso(-1),
+        commits: [
+          { message: 'GitHub タブ拡充 Phase 1: 更新順リポジトリ一覧コレクタを追加', date: iso(-1) },
+          { message: 'TODO サマリーをリポジトリごとに変更: 生成・キャッシュ・payload・HOME 表示', date: iso(-26) },
+          { message: 'HOME「今日やる」を「GitHub」セクションへ変更', date: iso(-30) },
+        ],
+        todoCount: 0,
+      },
+      {
+        repo: 'akiraak/vibeboard',
+        url: 'https://github.com/akiraak/vibeboard',
+        pushedAt: iso(-50),
+        commits: [{ message: 'Root タブの楽観ロック（mtime チェック）を追加', date: iso(-50) }],
+        todoCount: 0,
+      },
     ],
     mailCandidates: [
       {
@@ -144,6 +165,25 @@ async function main(): Promise<void> {
         `- ${repo} (${items.length}件, 入力 ${ts.usage.inputTokens} / 出力 ${ts.usage.outputTokens} トークン` +
           (ts.usage.costUsd != null ? ` = $${ts.usage.costUsd.toFixed(4)}` : '') +
           `)\n  ${ts.summary}`,
+      );
+    }
+  }
+
+  // GitHub タブ用の直近作業サマリー（キャッシュ判定は runBriefing 側なのでここでは生成のみ。
+  // 実データは最大 20 リポジトリあるためコスト節約で先頭 3 件に絞る）
+  const overviews = (input.repoOverviews ?? []).filter((r) => r.commits.length > 0);
+  const summaryTargets = useFixture ? overviews : overviews.slice(0, 3);
+  if (summaryTargets.length > 0) {
+    console.log('\n【直近作業サマリー（リポジトリ別）】');
+    if (summaryTargets.length < overviews.length) {
+      console.log(`（実データ ${overviews.length} 件中、先頭 ${summaryTargets.length} 件のみ生成）`);
+    }
+    for (const r of summaryTargets) {
+      const rs = await generateRepoSummary(r.repo, r.commits);
+      console.log(
+        `- ${r.repo} (コミット ${r.commits.length}件, 入力 ${rs.usage.inputTokens} / 出力 ${rs.usage.outputTokens} トークン` +
+          (rs.usage.costUsd != null ? ` = $${rs.usage.costUsd.toFixed(4)}` : '') +
+          `)\n  ${rs.summary}`,
       );
     }
   }

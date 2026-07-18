@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS todo_summary_cache (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 直近作業サマリー（GitHub タブ）のキャッシュ（リポジトリ単位。hash = プロンプト版数 +
+-- モデル ID + repo + 直近コミットの message/date 一覧の sha256）。push が無く
+-- コミット一覧が前回と同一なら LLM を呼ばず summary を再利用する。古い行は保存時に掃除
+CREATE TABLE IF NOT EXISTS repo_summary_cache (
+  hash       TEXT PRIMARY KEY,
+  summary    TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version    INTEGER NOT NULL,
   applied_at TEXT NOT NULL DEFAULT (datetime('now'))
