@@ -1,5 +1,6 @@
 // HOME = 案A 統合フィード。LLM 要約カード + 緊急順セクション
-// （締切が近い → GitHub(TODO サマリー) → 要対応 → 昨日の GitHub）を 1 画面スクロール。
+// （締切が近い(Canvas) → カレンダー(直近7日) → GitHub(TODO サマリー) → 要対応 → 昨日の GitHub）
+// を 1 画面スクロール。
 // 参照: docs/specs/ios-app-screens.md「3. 今日のブリーフィング」
 import SwiftUI
 
@@ -104,14 +105,27 @@ struct HomeView: View {
             }
         }
 
+        // 締切 = Canvas 課題のみ（14 日先まで収集）。Google カレンダー終日は下の別グループへ。
         // HOME は「今やるべきこと」のみ表示。完了済みはカレンダータブで確認・解除できる
-        let deadlines = payload.deadlines.filter { !state.isDeadlineCompleted($0) }
+        let deadlines = payload.deadlines.filter { $0.source == "canvas" && !state.isDeadlineCompleted($0) }
         SectionCard(title: "締切が近い", linkTab: .calendar) {
             if deadlines.isEmpty {
                 EmptyRow(message: "直近の締切はありません")
             } else {
                 ForEach(deadlines.indices, id: \.self) { i in
                     deadlineRow(deadlines[i])
+                }
+            }
+        }
+
+        // Google カレンダーの終日予定は締切と混ぜず、直近 7 日ぶんだけ別グループで表示
+        let calendarAllDay = payload.deadlines.filter {
+            $0.source != "canvas" && (BriefingDate.daysUntil($0.dueAt).map { $0 < 7 } ?? false)
+        }
+        if !calendarAllDay.isEmpty {
+            SectionCard(title: "カレンダー（直近7日）", linkTab: .calendar) {
+                ForEach(calendarAllDay.indices, id: \.self) { i in
+                    deadlineRow(calendarAllDay[i])
                 }
             }
         }

@@ -46,7 +46,7 @@ export const config = {
   canvas: {
     icalUrl: optional('CANVAS_ICAL_URL'),
     // 締切を先読みする日数（今日から N 日後 00:00 まで）
-    lookaheadDays: Number.parseInt(withDefault('CANVAS_LOOKAHEAD_DAYS', '7'), 10),
+    lookaheadDays: Number.parseInt(withDefault('CANVAS_LOOKAHEAD_DAYS', '14'), 10),
   },
   github: {
     token: optional('GITHUB_TOKEN'),

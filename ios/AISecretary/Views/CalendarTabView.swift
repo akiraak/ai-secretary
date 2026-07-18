@@ -281,8 +281,8 @@ struct CalendarTabView: View {
 
     @ViewBuilder
     private var deadlinesSection: some View {
-        // 未完了を先頭に、完了済みは下へまとめる。各グループ内は dueAt 昇順
-        let deadlines = (payload?.deadlines ?? []).sorted { a, b in
+        // 締切 = Canvas 課題のみ。未完了を先頭に、完了済みは下へまとめる。各グループ内は dueAt 昇順
+        let deadlines = (payload?.deadlines ?? []).filter { $0.source == "canvas" }.sorted { a, b in
             let aDone = state.isDeadlineCompleted(a)
             let bDone = state.isDeadlineCompleted(b)
             if aDone != bDone { return !aDone }
@@ -294,6 +294,20 @@ struct CalendarTabView: View {
             } else {
                 ForEach(deadlines.indices, id: \.self) { i in
                     deadlineRow(deadlines[i])
+                }
+            }
+        }
+
+        // Google カレンダーの終日予定は別グループ。直近 7 日ぶんのみ dueAt 昇順で表示
+        let calendarAllDay = (payload?.deadlines ?? [])
+            .filter { $0.source != "canvas" && (BriefingDate.daysUntil($0.dueAt).map { $0 < 7 } ?? false) }
+            .sorted {
+                (BriefingDate.parse($0.dueAt) ?? .distantFuture) < (BriefingDate.parse($1.dueAt) ?? .distantFuture)
+            }
+        if !calendarAllDay.isEmpty {
+            Section("カレンダー（直近7日）") {
+                ForEach(calendarAllDay.indices, id: \.self) { i in
+                    deadlineRow(calendarAllDay[i])
                 }
             }
         }
