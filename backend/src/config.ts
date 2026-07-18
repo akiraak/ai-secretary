@@ -39,7 +39,7 @@ export const config = {
     oauthPort: Number.parseInt(withDefault('GOOGLE_OAUTH_PORT', '5858'), 10),
   },
   gmail: {
-    // 受信トレイをさかのぼる日数（要対応候補の収集範囲）
+    // 受信メールをさかのぼる日数（要対応候補の収集範囲。アーカイブ済みを含む）
     lookbackDays: Number.parseInt(withDefault('GMAIL_LOOKBACK_DAYS', '2'), 10),
     maxResults: Number.parseInt(withDefault('GMAIL_MAX_RESULTS', '30'), 10),
   },

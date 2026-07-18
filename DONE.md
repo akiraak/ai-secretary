@@ -51,3 +51,4 @@
 - [x] 2026-07-17 HOME の「昨日の GitHub」を削除（GitHub タブに集約済みのため）。「GitHub」（TODO サマリー）セクションは HOME に残す（一度誤って削除したが復元）。未使用になった githubSummary ヘルパーも削除し、ios-app-screens.md の HOME 記述を更新。backend・payload は不変。シミュレータビルドで検証済み [plan](docs/plans/archive/remove-home-github-sections.md)
 - [x] 2026-07-17 HOME「GitHub」セクションのリポジトリを 5 件のみ表示に（6 件目以降は「残り N 件を表示」トグルで展開、展開後は「折りたたむ」で戻せる。RepoDetailView と同じパターン）。ios-app-screens.md も更新。シミュレータビルドで検証済み [plan](docs/plans/archive/home-github-collapse.md)
 - [x] 2026-07-17 home の要対応は機能しているか確認（結果: 実質機能していない — コレクタの `in:inbox newer_than:2d` と受信メール即アーカイブ運用が不整合で候補が常に 0 件。コレクタ実行・LLM トリアージ・iOS 表示は正常。「機能していたら最上部へ」の条件不成立のため移動は見送り、修正を TODO に別タスク化） [調査](docs/plans/archive/home-action-mails-verify-and-reorder.md)
+- [x] 2026-07-17 HOME「要対応」を機能させる: 返信・対応が必要な受信メールを LLM で判定して表示（アーカイブ済み含む受信メールを候補化）+ 「要対応」を HOME 最上部へ移動 [plan](docs/plans/archive/gmail-reply-needed-triage.md)

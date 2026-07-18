@@ -1,5 +1,5 @@
 // HOME = 案A 統合フィード。LLM 要約カード + 緊急順セクション
-// （締切が近い(Canvas) → カレンダー(直近7日) → GitHub(TODO サマリー) → 要対応）を 1 画面スクロール。
+// （要対応 → 締切が近い(Canvas) → カレンダー(直近7日) → GitHub(TODO サマリー)）を 1 画面スクロール。
 // 「昨日の GitHub」（commits/PR 集計）は GitHub タブへ集約済み（HOME には出さない）。
 // 参照: docs/specs/ios-app-screens.md「3. 今日のブリーフィング」
 import SwiftUI
@@ -100,6 +100,23 @@ struct HomeView: View {
         let actionMails = payload.mails.filter { $0.priority == "action" }
         let infoMails = payload.mails.filter { $0.priority != "action" }
 
+        // 返信・対応が必要なメールは最優先なので最上部（LLM がアーカイブ済み含む受信メールから判定）
+        SectionCard(title: "要対応") {
+            if actionMails.isEmpty {
+                EmptyRow(message: "要対応のメールはありません")
+            } else {
+                ForEach(actionMails.indices, id: \.self) { i in
+                    mailRow(actionMails[i])
+                }
+            }
+            if !infoMails.isEmpty {
+                Divider()
+                ForEach(infoMails.indices, id: \.self) { i in
+                    infoMailRow(infoMails[i])
+                }
+            }
+        }
+
         // 締切 = Canvas 課題のみ（14 日先まで収集）。Google カレンダー終日は下の別グループへ。
         // HOME は「今やるべきこと」のみ表示。完了済みはカレンダータブで確認・解除できる
         let deadlines = payload.deadlines.filter { $0.source == "canvas" && !state.isDeadlineCompleted($0) }
@@ -130,22 +147,6 @@ struct HomeView: View {
                 EmptyRow(message: "TODO は登録されていません")
             } else {
                 todoRepoSummaries(payload)
-            }
-        }
-
-        SectionCard(title: "要対応") {
-            if actionMails.isEmpty {
-                EmptyRow(message: "要対応のメールはありません")
-            } else {
-                ForEach(actionMails.indices, id: \.self) { i in
-                    mailRow(actionMails[i])
-                }
-            }
-            if !infoMails.isEmpty {
-                Divider()
-                ForEach(infoMails.indices, id: \.self) { i in
-                    infoMailRow(infoMails[i])
-                }
             }
         }
     }

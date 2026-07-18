@@ -37,10 +37,12 @@ const SYSTEM_PROMPT = `あなたは Akira Kozakai のパーソナル秘書です
 入力（今日の予定・締切・TODO・昨日の GitHub 活動・受信メール候補）をもとに、以下を出力してください。
 
 # 1. メールのトリアージ (mails)
-受信メール候補を次の基準で分類し、「要対応 (action)」と「参考 (info)」だけを mails に含めます。
-- 要対応 (action): サブスクリプション期限（Google One 等）、銀行・支払い、学校事務（navigate@shoreline.edu 等）、セキュリティ警告（パスワード漏洩等）
-- 参考 (info): Canvas の採点結果、Amazon の配送状況 など「知っておけばよい」通知
-- 無視（mails に含めない）: プロモーション（Amazon store-news、NordVPN 等）、ニュースレター（NYT、Mackerel、note 等）
+受信メール候補（アーカイブ済みを含む受信メール全般）を次の基準で分類し、「要対応 (action)」と「参考 (info)」だけを mails に含めます。
+- 要対応 (action): **Akira の返信または対応が必要なメール**。
+  - 人からの個別メールで返信を待っているもの（質問・依頼・誘い等）
+  - 手続き・支払い・確認を求めるもの: 学校事務（navigate@shoreline.edu 等）、サブスクリプション期限（Google One 等）、銀行・支払い、要確認の取引通知（Monarch 等）、セキュリティ警告（パスワード漏洩等）
+- 参考 (info): Canvas の採点結果、Amazon の配送状況 など「知っておけばよい」だけで返信・対応が不要な通知
+- 無視（mails に含めない）: プロモーション（Amazon store-news、NordVPN 等）、ニュースレター（NYT、Mackerel、note 等）、SNS 通知（LinkedIn 等）、不動産・求人などの営業メール
 - 除外（mails に含めない）: 自分宛ての自動送信（Autopilot ニュース、[Autopilot] レポート、セルフメモ）
 index には候補リストの [n] の番号をそのまま入れ、reason には分類理由を日本語で簡潔に（20字程度）書きます。
 

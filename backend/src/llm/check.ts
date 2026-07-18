@@ -111,6 +111,18 @@ function fixtureInput(now: Date): CollectedInput {
         labelIds: ['INBOX'],
         gmailLink: 'https://mail.google.com/mail/u/0/#inbox/t5',
       },
+      {
+        // アーカイブ済み（INBOX ラベルなし）の返信待ち個人メール。
+        // 実アカウントは受信メールが即アーカイブされるため、この形の候補が主になる
+        id: 'm6',
+        threadId: 't6',
+        from: 'Mike Tanaka <mike.tanaka@example.com>',
+        subject: '来週の勉強会、参加できますか？',
+        snippet: '候補日は 7/22(水) か 7/24(金) です。都合の良い日を返信してもらえると助かります。',
+        date: iso(-6),
+        labelIds: ['IMPORTANT'],
+        gmailLink: 'https://mail.google.com/mail/u/0/#all/t6',
+      },
     ],
   };
 }

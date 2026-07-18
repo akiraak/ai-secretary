@@ -1,18 +1,20 @@
-// Gmail コレクタ: 直近の受信トレイから「要対応候補」を生データで取得する。
+// Gmail コレクタ: 直近の受信メールから「要対応候補」を生データで取得する。
+// このアカウントは受信メールが即アーカイブされ INBOX に残らない運用のため、
+// in:inbox では絞らずアーカイブ済みを含む受信メール全般を候補にする（送信済み・下書き・チャットは除く）。
 // トリアージ規則の適用（要対応 / 参考 / 無視 / 除外）は Step 4 の LLM 層が行う。
 // ここでは範囲を絞って正規化するだけ（LLM に渡す入力を作る）。
 import { gmailClient } from '../auth/google.js';
 import { config } from '../config.js';
 import type { RawMailCandidate } from '../types.js';
 
-/** now を基準に直近 lookbackDays 日の受信トレイ候補を取得する。 */
+/** now を基準に直近 lookbackDays 日の受信メール候補を取得する。 */
 export async function collectGmail(): Promise<RawMailCandidate[]> {
   const gmail = gmailClient();
   const { lookbackDays, maxResults } = config.gmail;
 
   const list = await gmail.users.messages.list({
     userId: 'me',
-    q: `in:inbox newer_than:${lookbackDays}d`,
+    q: `newer_than:${lookbackDays}d -in:sent -in:draft -in:chat`,
     maxResults,
   });
 
@@ -44,7 +46,8 @@ export async function collectGmail(): Promise<RawMailCandidate[]> {
         snippet: decodeSnippet(msg.snippet ?? ''),
         date,
         labelIds: msg.labelIds ?? [],
-        gmailLink: `https://mail.google.com/mail/u/0/#inbox/${threadId}`,
+        // アーカイブ済みスレッドも開けるよう #inbox ではなく #all（すべてのメール）で開く
+        gmailLink: `https://mail.google.com/mail/u/0/#all/${threadId}`,
       };
     }),
   );
