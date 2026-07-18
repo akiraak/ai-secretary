@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { briefingDate } from '../util/time.js';
 import { collectCalendar } from './calendar.js';
 import { collectCanvas } from './canvas.js';
-import { collectGithub } from './github.js';
+import { collectGithub, collectRepoOverviews } from './github.js';
 import { collectGmail } from './gmail.js';
 import { collectTodos } from './todos.js';
 
@@ -76,6 +76,20 @@ async function main(): Promise<void> {
     }
   } catch (e) {
     console.error('[GitHub] 失敗:', (e as Error).message);
+  }
+
+  console.log('');
+
+  // --- GitHub リポジトリ一覧 ---
+  try {
+    const overviews = await collectRepoOverviews(now);
+    console.log(`[GitHubRepos] 更新順リポジトリ ${overviews.length} 件（直近 90 日 / 最大 20 件）`);
+    for (const r of overviews) {
+      const pushed = new Date(r.pushedAt).toLocaleString('ja-JP', { timeZone: tz });
+      console.log(`  ・${r.repo}  push: ${pushed}  コミット ${r.commits.length} 件`);
+    }
+  } catch (e) {
+    console.error('[GitHubRepos] 失敗:', (e as Error).message);
   }
 
   console.log('');

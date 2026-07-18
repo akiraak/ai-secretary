@@ -103,6 +103,7 @@ export function collectorRunsFrom(
     },
     { source: 'gmail', warnPrefix: '[Gmail]', raw: input.mailCandidates },
     { source: 'github', warnPrefix: '[GitHub]', raw: input.github },
+    { source: 'github_repos', warnPrefix: '[GitHubRepos]', raw: input.repoOverviews ?? [] },
     { source: 'todos', warnPrefix: '[TODO]', raw: input.todos },
   ];
   return sources.map(({ source, warnPrefix, raw }) => {
@@ -124,7 +125,8 @@ async function main(): Promise<void> {
   for (const w of warnings) console.warn(`⚠ ${w}`);
   console.log(
     `収集: 予定 ${input.events.length}（今日 ${input.todayEvents.length}） / 締切 ${input.deadlines.length} / ` +
-      `TODO ${input.todos.length} / GitHub ${input.github.length} / メール候補 ${input.mailCandidates.length}`,
+      `TODO ${input.todos.length} / GitHub ${input.github.length} / リポジトリ ${input.repoOverviews?.length ?? 0} / ` +
+      `メール候補 ${input.mailCandidates.length}`,
   );
 
   for (const run of collectorRunsFrom(input, warnings)) {

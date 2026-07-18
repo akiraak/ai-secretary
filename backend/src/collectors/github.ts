@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { config } from '../config.js';
 import { tzLocalToInstant, tzYmd } from '../util/time.js';
-import type { GithubItem } from '../types.js';
+import type { GithubItem, RepoCommit, RepoOverview } from '../types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,6 +15,13 @@ const API_BASE = 'https://api.github.com';
 const MAX_EVENT_PAGES = 3;
 // /user/repos のページング上限（100 件/頁 × 10 = 1000 リポジトリまで）
 const MAX_REPO_PAGES = 10;
+// リポジトリ一覧（GitHub タブ）の対象: 直近 90 日以内に push があったもの、最大 20 件
+const REPO_OVERVIEW_MAX_AGE_DAYS = 90;
+const REPO_OVERVIEW_MAX_REPOS = 20;
+// 詳細画面用に各リポジトリから取る直近コミット数
+const REPO_OVERVIEW_COMMITS_PER_REPO = 10;
+// commits 取得（最大 20 リポジトリ分）の並列数
+const COMMITS_FETCH_CONCURRENCY = 8;
 
 /** GitHub API の HTTP エラー。呼び出し側が 404（TODO.md 無し等）を区別できるよう status を持つ。 */
 export class GhHttpError extends Error {
@@ -76,23 +83,97 @@ interface GhRepo {
   full_name: string;
   fork: boolean;
   archived: boolean;
+  html_url: string;
+  pushed_at: string | null; // push が一度も無いリポジトリは null
 }
 
 /**
- * トークンで見える全リポジトリ（own / collaborator / org）を `owner/repo` で列挙する。
+ * トークンで見える全リポジトリ（own / collaborator / org）を pushed 降順で列挙する。
  * fork（upstream 由来の TODO.md がノイズになる）と archived（停止済み）は除外。
  * 監視したい fork は GITHUB_REPOS に明示指定すれば読める。
  */
-export async function listAccessibleRepos(token: string): Promise<string[]> {
-  const names: string[] = [];
+async function listActiveRepos(token: string): Promise<GhRepo[]> {
+  const repos: GhRepo[] = [];
   for (let page = 1; page <= MAX_REPO_PAGES; page++) {
-    const batch = await ghApi<GhRepo[]>(`/user/repos?per_page=100&sort=pushed&page=${page}`, token);
+    const batch = await ghApi<GhRepo[]>(
+      `/user/repos?per_page=100&sort=pushed&direction=desc&page=${page}`,
+      token,
+    );
     for (const r of batch) {
-      if (!r.fork && !r.archived) names.push(r.full_name);
+      if (!r.fork && !r.archived) repos.push(r);
     }
     if (batch.length < 100) break;
   }
-  return names;
+  return repos;
+}
+
+/** トークンで見えるリポジトリ（fork / archived 除く）を `owner/repo` で列挙する。 */
+export async function listAccessibleRepos(token: string): Promise<string[]> {
+  return (await listActiveRepos(token)).map((r) => r.full_name);
+}
+
+/** commits API のレスポンスのうち使う部分だけの型。 */
+interface GhCommit {
+  html_url: string;
+  commit: {
+    message: string;
+    author?: { date?: string } | null;
+    committer?: { date?: string } | null;
+  };
+}
+
+/** 1 リポジトリの直近コミットを取得する。空リポジトリ（HTTP 409）は正常扱いで空を返す。 */
+async function fetchRecentCommits(fullName: string, token: string): Promise<RepoCommit[]> {
+  let commits: GhCommit[];
+  try {
+    commits = await ghApi<GhCommit[]>(
+      `/repos/${fullName}/commits?per_page=${REPO_OVERVIEW_COMMITS_PER_REPO}`,
+      token,
+    );
+  } catch (e) {
+    if (e instanceof GhHttpError && e.status === 409) return [];
+    throw e;
+  }
+  return commits.map((c) => ({
+    message: c.commit.message.split('\n', 1)[0]!,
+    date: c.commit.committer?.date ?? c.commit.author?.date ?? '',
+    url: c.html_url,
+  }));
+}
+
+/**
+ * GitHub タブ用の更新順リポジトリ一覧を収集する。
+ * 対象は非 fork・非 archived のうち直近 90 日以内に push があったもの（pushed_at 降順、最大 20 件）。
+ * todo 系フィールド（todoRepo / todoSummary / todoCount）と recentSummary は
+ * runBriefing 側で join / LLM 生成して埋める。
+ */
+export async function collectRepoOverviews(now: Date = new Date()): Promise<RepoOverview[]> {
+  const token = await resolveToken();
+  const cutoff = new Date(now.getTime() - REPO_OVERVIEW_MAX_AGE_DAYS * 86_400_000);
+  const targets = (await listActiveRepos(token))
+    .filter((r) => r.pushed_at !== null && new Date(r.pushed_at) >= cutoff)
+    .slice(0, REPO_OVERVIEW_MAX_REPOS);
+
+  // 並列プール（結果は targets の順 = pushed_at 降順を保つ）
+  const overviews: RepoOverview[] = new Array(targets.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < targets.length) {
+      const i = next++;
+      const r = targets[i]!;
+      overviews[i] = {
+        repo: r.full_name,
+        url: r.html_url,
+        pushedAt: r.pushed_at!,
+        commits: await fetchRecentCommits(r.full_name, token),
+        todoCount: 0,
+      };
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(COMMITS_FETCH_CONCURRENCY, targets.length) }, worker),
+  );
+  return overviews;
 }
 
 /** Events API のレスポンスのうち使う部分だけの型。 */

@@ -6,7 +6,7 @@
   - 更新順でリポジトリ一覧
   - リポジトリの直近作業サマリーとTODOサマリーを表示
   - リポジトリの詳細画面を作成
-  - [ ] Phase 1: backend コレクタ（更新順リポジトリ一覧 + 直近コミット取得）
+  - [x] Phase 1: backend コレクタ（更新順リポジトリ一覧 + 直近コミット取得）
   - [ ] Phase 2: backend LLM 直近作業サマリー（repo_summary_cache + runBriefing 統合）
   - [ ] Phase 3: iOS GitHub タブをリポジトリ一覧に刷新
   - [ ] Phase 4: iOS リポジトリ詳細画面

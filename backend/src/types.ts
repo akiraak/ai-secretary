@@ -64,6 +64,29 @@ export interface GithubItem {
   url?: string;
 }
 
+/** リポジトリ詳細画面用の直近コミット 1 件 */
+export interface RepoCommit {
+  message: string; // 1 行目のみ
+  date: string; // ISO8601
+  url?: string;
+}
+
+/**
+ * リポジトリ 1 つ分の概要（GitHub タブの一覧 + 詳細画面のデータ源）。
+ * コレクタは repo / url / pushedAt / commits を埋め、
+ * recentSummary と todo 系フィールドは runBriefing が LLM 生成・join 後に埋める。
+ */
+export interface RepoOverview {
+  repo: string; // owner/name
+  url: string; // https://github.com/owner/name
+  pushedAt: string; // ISO8601。更新順ソートキー
+  commits: RepoCommit[]; // 直近コミット（最大 10 件）
+  recentSummary?: string; // 直近作業の LLM サマリー（生成失敗時は無し）
+  todoRepo?: string; // payload.todos / todoSummaries 側のラベル（iOS の join 用）
+  todoSummary?: string; // todoSummaries から join
+  todoCount: number; // TODO.md の未完了件数（0 = TODO.md 無し）
+}
+
 /** カレンダーの予定（時刻付きイベント） */
 export interface EventItem {
   /** Google Calendar のイベント ID。変更検知のキー */
@@ -100,6 +123,8 @@ export interface CollectedInput {
   mailCandidates: RawMailCandidate[];
   /** 前回ブリーフィング以降の変更（runBriefing が diff 計算後に設定する） */
   calendarChanges?: CalendarChange[];
+  /** 更新順リポジトリ一覧（GitHub タブ用）。コレクタ失敗時は undefined */
+  repoOverviews?: RepoOverview[];
 }
 
 /** briefings.payload_json に格納する構造化ブリーフィング全体 */
@@ -115,6 +140,8 @@ export interface BriefingPayload {
   todos: TodoItem[];
   /** リポジトリごとの TODO.md の LLM サマリー。旧 payload には無く、生成失敗したリポジトリは含まれない */
   todoSummaries?: TodoRepoSummary[];
+  /** 更新順リポジトリ一覧（GitHub タブ用）。旧 payload には無い */
+  repos?: RepoOverview[];
   mails: MailItem[];
   github: GithubItem[];
 }

@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_briefings_date ON briefings(briefing_date);
 CREATE TABLE IF NOT EXISTS collector_runs (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   briefing_date TEXT NOT NULL,
-  source        TEXT NOT NULL,                 -- calendar | gmail | canvas | github | todos
+  source        TEXT NOT NULL,                 -- calendar | gmail | canvas | github | github_repos | todos
   status        TEXT NOT NULL,                 -- ok | error
   raw_json      TEXT,
   error         TEXT,
