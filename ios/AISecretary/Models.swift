@@ -26,6 +26,8 @@ struct BriefingPayload: Codable, Equatable {
     let todos: [TodoItem]
     /// リポジトリごとの TODO.md の LLM サマリー。旧 payload には無く、生成失敗したリポジトリは含まれない
     let todoSummaries: [TodoRepoSummary]?
+    /// 更新順リポジトリ一覧（GitHub タブ用）。旧 payload には無い
+    let repos: [RepoOverview]?
     let mails: [MailItem]
     let github: [GithubItem]
 }
@@ -103,6 +105,25 @@ struct GithubItem: Codable, Equatable {
     let url: String?
 }
 
+/// リポジトリ詳細画面用の直近コミット 1 件
+struct RepoCommit: Codable, Equatable {
+    let message: String // 1 行目のみ
+    let date: String // ISO8601
+    let url: String?
+}
+
+/// リポジトリ 1 つ分の概要（GitHub タブの一覧 + 詳細画面のデータ源）
+struct RepoOverview: Codable, Equatable {
+    let repo: String // owner/name
+    let url: String // https://github.com/owner/name
+    let pushedAt: String // ISO8601。更新順ソートキー
+    let commits: [RepoCommit] // 直近コミット（最大 10 件）
+    let recentSummary: String? // 直近作業の LLM サマリー（生成失敗時は無し）
+    let todoRepo: String? // payload.todos / todoSummaries 側のラベル（join 用）
+    let todoSummary: String? // todoSummaries から join 済み
+    let todoCount: Int // TODO.md の未完了件数（0 = TODO.md 無し）
+}
+
 // MARK: - 日付ユーティリティ
 
 enum BriefingDate {
@@ -149,6 +170,18 @@ enum BriefingDate {
         case 0: return "今日"
         case 1: return "明日"
         default: return "あと\(days)日"
+        }
+    }
+
+    /// 過去時刻の相対表記（今日 / 昨日 / N日前）。リポジトリ一覧の更新時刻用
+    static func agoLabel(_ s: String) -> String {
+        guard let date = parse(s) else { return "" }
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: .now)).day ?? 0
+        switch days {
+        case ..<1: return "今日"
+        case 1: return "昨日"
+        default: return "\(days)日前"
         }
     }
 
