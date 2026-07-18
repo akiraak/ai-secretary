@@ -281,8 +281,12 @@ struct CalendarTabView: View {
 
     @ViewBuilder
     private var deadlinesSection: some View {
-        let deadlines = (payload?.deadlines ?? []).sorted {
-            (BriefingDate.parse($0.dueAt) ?? .distantFuture) < (BriefingDate.parse($1.dueAt) ?? .distantFuture)
+        // 未完了を先頭に、完了済みは下へまとめる。各グループ内は dueAt 昇順
+        let deadlines = (payload?.deadlines ?? []).sorted { a, b in
+            let aDone = state.isDeadlineCompleted(a)
+            let bDone = state.isDeadlineCompleted(b)
+            if aDone != bDone { return !aDone }
+            return (BriefingDate.parse(a.dueAt) ?? .distantFuture) < (BriefingDate.parse(b.dueAt) ?? .distantFuture)
         }
         Section("今後の締切") {
             if deadlines.isEmpty {

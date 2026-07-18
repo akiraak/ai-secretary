@@ -104,12 +104,14 @@ struct HomeView: View {
             }
         }
 
+        // HOME は「今やるべきこと」のみ表示。完了済みはカレンダータブで確認・解除できる
+        let deadlines = payload.deadlines.filter { !state.isDeadlineCompleted($0) }
         SectionCard(title: "締切が近い", linkTab: .calendar) {
-            if payload.deadlines.isEmpty {
+            if deadlines.isEmpty {
                 EmptyRow(message: "直近の締切はありません")
             } else {
-                ForEach(payload.deadlines.indices, id: \.self) { i in
-                    deadlineRow(payload.deadlines[i])
+                ForEach(deadlines.indices, id: \.self) { i in
+                    deadlineRow(deadlines[i])
                 }
             }
         }
