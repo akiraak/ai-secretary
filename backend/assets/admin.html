@@ -89,6 +89,8 @@
       <a href="#" data-page="calendar">カレンダー</a>
       <a href="#" data-page="shopping">買い物リスト</a>
       <a href="#" data-page="ai">AI 利用状況</a>
+      <a href="#" data-page="system">システム</a>
+      <a href="#" data-page="settings">設定</a>
     </nav>
     <div class="foot">
       共有シークレット
@@ -118,35 +120,6 @@
 
     <h2>最新ブリーフィング</h2>
     <div class="briefing-block" id="briefing"><span class="faint">（なし）</span></div>
-
-    <h2>収集カレンダー</h2>
-    <div class="card" id="calCard"><div class="empty">「一覧を読み込み」を押すと Google からカレンダー一覧を取得します</div></div>
-    <div class="run-row" style="margin-top:10px">
-      <button class="btn btn-secondary" id="calLoadBtn">一覧を読み込み</button>
-      <button class="btn btn-primary" id="calSaveBtn" disabled>選択を保存</button>
-      <span class="dim" id="calMsg"></span>
-    </div>
-
-    <h2>収集設定</h2>
-    <div class="run-row">
-      <label for="canvasDays">Canvas 締切の先読み日数</label>
-      <input type="number" class="num-input" id="canvasDays" min="1" max="60">
-      <span class="dim">日先まで</span>
-      <button class="btn btn-primary" id="canvasDaysSaveBtn">保存</button>
-      <span class="dim" id="canvasDaysMsg"></span>
-    </div>
-
-    <h2>直近の push</h2>
-    <div class="card" id="pushLogs"><div class="empty">（なし）</div></div>
-
-    <h2>直近のコレクタ実行</h2>
-    <div class="card" id="collectorRuns"><div class="empty">（なし）</div></div>
-
-    <h2>登録デバイス</h2>
-    <div class="card" id="devices"><div class="empty">（なし）</div></div>
-
-    <h2>最新ログ <span class="faint mono" id="logName"></span></h2>
-    <pre id="logTail">（なし）</pre>
     </section>
 
     <section id="page-calendar" hidden>
@@ -188,6 +161,45 @@
 
     <h2>直近の呼び出し</h2>
     <div class="card" id="aiRecent"><div class="empty">（なし）</div></div>
+    </section>
+
+    <section id="page-system" hidden>
+    <h1>システム</h1>
+    <p class="page-sub" id="systemSub">未読み込み</p>
+
+    <h2>直近の push</h2>
+    <div class="card" id="pushLogs"><div class="empty">（なし）</div></div>
+
+    <h2>直近のコレクタ実行</h2>
+    <div class="card" id="collectorRuns"><div class="empty">（なし）</div></div>
+
+    <h2>登録デバイス</h2>
+    <div class="card" id="devices"><div class="empty">（なし）</div></div>
+
+    <h2>最新ログ <span class="faint mono" id="logName"></span></h2>
+    <pre id="logTail">（なし）</pre>
+    </section>
+
+    <section id="page-settings" hidden>
+    <h1>設定</h1>
+    <p class="page-sub">収集対象カレンダーとコレクタの動作設定（保存すると次回ブリーフィングから反映）</p>
+
+    <h2>収集カレンダー</h2>
+    <div class="card" id="calCard"><div class="empty">「一覧を読み込み」を押すと Google からカレンダー一覧を取得します</div></div>
+    <div class="run-row" style="margin-top:10px">
+      <button class="btn btn-secondary" id="calLoadBtn">一覧を読み込み</button>
+      <button class="btn btn-primary" id="calSaveBtn" disabled>選択を保存</button>
+      <span class="dim" id="calMsg"></span>
+    </div>
+
+    <h2>収集設定</h2>
+    <div class="run-row">
+      <label for="canvasDays">Canvas 締切の先読み日数</label>
+      <input type="number" class="num-input" id="canvasDays" min="1" max="60">
+      <span class="dim">日先まで</span>
+      <button class="btn btn-primary" id="canvasDaysSaveBtn">保存</button>
+      <span class="dim" id="canvasDaysMsg"></span>
+    </div>
     </section>
   </main>
 </div>
@@ -259,6 +271,7 @@ async function refresh() {
     return;
   }
   $('pageSub').textContent = `最終更新 ${seattle(s.now)}（シアトル時刻）`;
+  $('systemSub').textContent = `最終更新 ${seattle(s.now)}（シアトル時刻）`;
 
   const b = s.briefing;
   $('statDate').textContent = b ? b.date : '未生成';
@@ -426,8 +439,16 @@ async function refreshAi() {
 }
 
 // サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
-const PAGES = ['dashboard', 'calendar', 'shopping', 'ai'];
-const PAGE_REFRESH = { calendar: refreshCalendar, shopping: refreshShopping, ai: refreshAi };
+// dashboard と system は同じ /admin/status を共有するので refresh() が両セクションを埋める
+const PAGES = ['dashboard', 'calendar', 'shopping', 'ai', 'system', 'settings'];
+const PAGE_REFRESH = {
+  dashboard: refresh,
+  calendar: refreshCalendar,
+  shopping: refreshShopping,
+  ai: refreshAi,
+  system: refresh,
+  settings: refreshSettings,
+};
 let currentPage = 'dashboard';
 
 function showPage(page) {
@@ -496,8 +517,8 @@ $('calSaveBtn').onclick = async () => {
   }
 };
 
-// 収集設定（GET/PUT /admin/settings）: 編集中の上書きを避けるため 3 秒ポーリングには含めず、
-// 認証時に一度だけ読み込む
+// 設定ページ（GET/PUT /admin/settings）: 編集中の上書きを避けるため 3 秒ポーリングには含めず、
+// ページ表示時に読み込む
 async function refreshSettings() {
   try {
     const r = await api('/admin/settings');
@@ -527,9 +548,9 @@ $('canvasDaysSaveBtn').onclick = async () => {
 
 $('saveBtn').onclick = () => {
   localStorage.setItem('adminSecret', $('secret').value.trim());
+  // refresh() は認証エラーを authMsg に出すので、どのページにいても必ず呼ぶ
   refresh();
-  refreshSettings();
-  PAGE_REFRESH[currentPage]?.();
+  if (PAGE_REFRESH[currentPage] !== refresh) PAGE_REFRESH[currentPage]?.();
 };
 
 $('runBtn').onclick = async () => {
@@ -543,10 +564,7 @@ $('runBtn').onclick = async () => {
 };
 
 $('secret').value = secret();
-if (secret()) {
-  refresh();
-  refreshSettings();
-}
+if (secret()) refresh();
 </script>
 </body>
 </html>
