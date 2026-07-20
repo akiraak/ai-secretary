@@ -5,3 +5,4 @@
   - [ ] Phase 2: 管理画面「タスク」ページ
   - [ ] Phase 3: iOS HOME「今日のタスク」セクション(表示・追加・完了)
   - [ ] Phase 4(任意): briefing payload への同梱
+- [ ] テスト
