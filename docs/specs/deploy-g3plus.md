@@ -19,7 +19,10 @@ g3plus（Ubuntu）に backend を配置し、
   Google OAuth / Canvas iCal URL / GITHUB_TOKEN / ANTHROPIC_API_KEY / APNS_* / API_SHARED_SECRET。
   Mac で検証済みの `.env` と `.p8` をそのまま持ち込むのが早い（どちらも git 管理外なので scp 等で）
 - 管理画面 `/admin` は **`ADMIN_ENABLED=on` の明示があるときだけ存在する**（無ければ `/admin*` は全て 404 = fail-safe）。
-  本番では前段（Cloudflare Access 等）で `/admin` を認証保護してから on にする
+  `/admin*`（データ API 含む）は **Bearer 認証なし**で、認証は前段の Cloudflare Access に一本化している。
+  Access のアプリケーションパスが `/admin` 配下（`/admin/*` を含むプレフィックス）をカバーしていることを
+  確認してから on にすること。共有シークレットが必要なのは iOS アプリ用 API
+  （`/devices` `/briefings/latest` `/deadlines` `/deadlines/complete`）のみ
 
 ## 1. セットアップ
 

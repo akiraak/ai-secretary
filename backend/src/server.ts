@@ -1,10 +1,17 @@
-// HTTP API サーバ。単一ユーザーなので認証は共有シークレット（Bearer）で簡易に行う。
-// エンドポイントが少ないのでフレームワークは使わず node:http で実装する。
+// HTTP API サーバ。エンドポイントが少ないのでフレームワークは使わず node:http で実装する。
+// 認証は経路の用途で分かれる:
+//   - iOS アプリ用 API は共有シークレット（Bearer）必須
+//   - /admin* は Bearer 認証なし。前段の Cloudflare Access が保護する前提で、
+//     ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。Access のアプリケーション
+//     パスは /admin 配下（/admin/* を含む）をカバーしてから有効化すること
+//
+// iOS アプリ用（Bearer 必須）:
 //   POST /devices             — iOS デバイストークン登録 {token, platform?}
 //   GET  /briefings/latest    — 最新ブリーフィング JSON（アプリのプル元）
 //   GET  /deadlines           — 最新の Canvas 締切 + 手動完了フラグ（アプリの状態同期用）
 //   POST /deadlines/complete  — 締切の手動完了チェック {uid, completed}
-//   GET  /admin               — 管理画面（静的 HTML。`ADMIN_ENABLED=on` のときのみ）
+// 管理画面用（Bearer なし・ADMIN_ENABLED=on のときのみ）:
+//   GET  /admin               — 管理画面（静的 HTML）
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
 //   GET  /admin/calendar-info — カレンダータブ用（今日の予定 + 締切と完了状態）
@@ -12,8 +19,7 @@
 //   GET/PUT /admin/calendars  — 収集対象カレンダーの一覧・保存
 //   GET/PUT /admin/settings   — 収集設定（Canvas 締切の先読み日数）
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
-// /admin* は ADMIN_ENABLED=on の明示が無い限り 404（fail-safe）。本番は前段の
-// Cloudflare Access で /admin を保護してから有効化する。
+//   POST /admin/deadlines/complete — 締切の手動完了チェック（管理画面から。処理は iOS 用と同一）
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
@@ -275,56 +281,13 @@ export function createServer(secret: string): http.Server {
         return;
       }
 
-      // 管理画面の静的ページのみ認証なし（シークレット入力用の器で、データは status 側が守る）
+      // /admin* は Bearer 認証なし（前段の Cloudflare Access が保護。上の fail-safe 参照）
       if (path === '/admin' || path === '/admin/') {
         if (req.method !== 'GET') {
           sendJson(res, 405, { error: 'GET を使ってください' });
           return;
         }
         serveAdminPage(res);
-        return;
-      }
-
-      if (!authorized(req.headers.authorization, secret)) {
-        sendJson(res, 401, { error: '認証に失敗しました (Bearer API_SHARED_SECRET)' });
-        return;
-      }
-
-      if (path === '/devices') {
-        if (req.method !== 'POST') {
-          sendJson(res, 405, { error: 'POST を使ってください' });
-          return;
-        }
-        const body = await readBody(req, res);
-        if (body !== null) handleRegisterDevice(body, res);
-        return;
-      }
-
-      if (path === '/briefings/latest') {
-        if (req.method !== 'GET') {
-          sendJson(res, 405, { error: 'GET を使ってください' });
-          return;
-        }
-        handleLatestBriefing(res);
-        return;
-      }
-
-      if (path === '/deadlines') {
-        if (req.method !== 'GET') {
-          sendJson(res, 405, { error: 'GET を使ってください' });
-          return;
-        }
-        handleListDeadlines(res);
-        return;
-      }
-
-      if (path === '/deadlines/complete') {
-        if (req.method !== 'POST') {
-          sendJson(res, 405, { error: 'POST を使ってください' });
-          return;
-        }
-        const body = await readBody(req, res);
-        if (body !== null) handleCompleteDeadline(body, res);
         return;
       }
 
@@ -412,6 +375,67 @@ export function createServer(secret: string): http.Server {
           return;
         }
         sendJson(res, 405, { error: 'GET または PUT を使ってください' });
+        return;
+      }
+
+      // 管理画面のカレンダーページ用。処理は iOS 用 POST /deadlines/complete と同一
+      if (path === '/admin/deadlines/complete') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleCompleteDeadline(body, res);
+        return;
+      }
+
+      // /admin* で未定義のパスはここで打ち切る（下の Bearer 必須帯に流さない）
+      if (path.startsWith('/admin/')) {
+        sendJson(res, 404, { error: 'not found' });
+        return;
+      }
+
+      // これ以降は iOS アプリ用 API。共有シークレット必須
+      if (!authorized(req.headers.authorization, secret)) {
+        sendJson(res, 401, { error: '認証に失敗しました (Bearer API_SHARED_SECRET)' });
+        return;
+      }
+
+      if (path === '/devices') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleRegisterDevice(body, res);
+        return;
+      }
+
+      if (path === '/briefings/latest') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        handleLatestBriefing(res);
+        return;
+      }
+
+      if (path === '/deadlines') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        handleListDeadlines(res);
+        return;
+      }
+
+      if (path === '/deadlines/complete') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleCompleteDeadline(body, res);
         return;
       }
 

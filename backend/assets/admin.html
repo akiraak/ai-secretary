@@ -27,10 +27,6 @@
   .sidebar nav a:hover { color: #E6EDF3; background: rgba(255,255,255,0.03); text-decoration: none; }
   .sidebar nav a.active { color: #fff; background: rgba(56,189,248,0.12); border-left-color: #38BDF8; font-weight: 600; }
   .sidebar .foot { margin-top: auto; padding: 16px 20px 4px; font-size: 11px; color: #66737F; }
-  .sidebar .foot input {
-    width: 100%; margin: 6px 0; padding: 6px 8px; font: inherit; font-size: 12px;
-    background: #0C1116; color: #E6EDF3; border: 1px solid #1F2A35; border-radius: 6px;
-  }
   main { flex: 1; padding: 24px 28px 48px; min-width: 0; }
   h1 { font-size: 19px; margin: 0 0 4px; font-weight: 600; }
   h2 { font-size: 15px; margin: 24px 0 10px; }
@@ -93,17 +89,13 @@
       <a href="#" data-page="settings">設定</a>
     </nav>
     <div class="foot">
-      共有シークレット
-      <input type="password" id="secret" placeholder="API_SHARED_SECRET">
-      <button class="btn btn-secondary" id="saveBtn">保存して読み込み</button>
-      <div id="authMsg" class="err-note"></div>
-      <div style="margin-top:12px">America/Los_Angeles</div>
+      <div>America/Los_Angeles</div>
     </div>
   </aside>
   <main>
     <section id="page-dashboard">
     <h1>ダッシュボード</h1>
-    <p class="page-sub" id="pageSub">未読み込み — 左下に共有シークレットを入力してください</p>
+    <p class="page-sub" id="pageSub">読み込み中…</p>
 
     <div class="stats">
       <div class="stat"><div class="lbl">最新ブリーフィング</div><div class="val" id="statDate">-</div></div>
@@ -208,7 +200,8 @@
 const $ = (id) => document.getElementById(id);
 let pollTimer = null;
 
-function secret() { return localStorage.getItem('adminSecret') || ''; }
+// 認証は前段の Cloudflare Access 任せ（旧方式の共有シークレットが残っていれば掃除する）
+localStorage.removeItem('adminSecret');
 
 // DB のタイムスタンプは UTC。esl の管理画面と同じくシアトル時刻で表示する
 const seattleFmt = new Intl.DateTimeFormat('sv-SE', {
@@ -227,12 +220,12 @@ function esc(v) {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + secret(), ...(opts.headers || {}) },
-  });
-  if (res.status === 401) throw new Error('認証エラー: 共有シークレットを確認してください');
+  const res = await fetch(path, opts);
   const data = await res.json().catch(() => null);
+  // 200 なのに JSON でない = Cloudflare Access のセッション切れでログインページが返っている
+  if (res.ok && data === null) {
+    throw new Error('セッション切れの可能性があります。ページをリロードしてください');
+  }
   if (!res.ok && res.status !== 202) throw new Error((data && data.error) || 'HTTP ' + res.status);
   return data;
 }
@@ -262,12 +255,12 @@ function renderTable(el, rows, cols, render) {
 }
 
 async function refresh() {
-  $('authMsg').textContent = '';
   let s;
   try {
     s = await api('/admin/status');
   } catch (e) {
-    $('authMsg').textContent = e.message;
+    $('pageSub').textContent = e.message;
+    $('systemSub').textContent = e.message;
     return;
   }
   $('pageSub').textContent = `最終更新 ${seattle(s.now)}（シアトル時刻）`;
@@ -363,7 +356,7 @@ async function refreshCalendar() {
     cb.onchange = async () => {
       cb.disabled = true;
       try {
-        await api('/deadlines/complete', {
+        await api('/admin/deadlines/complete', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ uid: cb.dataset.uid, completed: cb.checked }),
@@ -457,7 +450,7 @@ function showPage(page) {
   document.querySelectorAll('.sidebar nav a').forEach((a) => {
     a.classList.toggle('active', a.dataset.page === page);
   });
-  if (secret()) PAGE_REFRESH[page]?.();
+  PAGE_REFRESH[page]?.();
 }
 
 document.querySelectorAll('.sidebar nav a').forEach((a) => {
@@ -546,13 +539,6 @@ $('canvasDaysSaveBtn').onclick = async () => {
   }
 };
 
-$('saveBtn').onclick = () => {
-  localStorage.setItem('adminSecret', $('secret').value.trim());
-  // refresh() は認証エラーを authMsg に出すので、どのページにいても必ず呼ぶ
-  refresh();
-  if (PAGE_REFRESH[currentPage] !== refresh) PAGE_REFRESH[currentPage]?.();
-};
-
 $('runBtn').onclick = async () => {
   try {
     await api('/admin/run-briefing', { method: 'POST' });
@@ -563,8 +549,7 @@ $('runBtn').onclick = async () => {
   }
 };
 
-$('secret').value = secret();
-if (secret()) refresh();
+refresh();
 </script>
 </body>
 </html>
