@@ -12,6 +12,11 @@ struct HomeView: View {
     @State private var doneMails: Set<String> = []
     @State private var showAllGithubRepos = false
 
+    // 日々のタスク追加（POST /todos/daily）
+    @State private var newDailyTodoText = ""
+    @State private var isAddingDailyTodo = false
+    @State private var addDailyTodoError: String?
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -51,8 +56,21 @@ struct HomeView: View {
         }
         .task {
             if state.briefing == nil && state.isConfigured {
-                await state.refreshBriefing()
+                await state.refreshBriefing() // 中で日々のタスクも取り直す
+            } else if state.isConfigured {
+                await state.refreshDailyTodos()
             }
+        }
+        .alert(
+            "タスクを追加できませんでした",
+            isPresented: Binding(
+                get: { addDailyTodoError != nil },
+                set: { if !$0 { addDailyTodoError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(addDailyTodoError ?? "")
         }
     }
 
@@ -117,6 +135,18 @@ struct HomeView: View {
             }
         }
 
+        // 日々の作業タスク（daily_todos のライブ取得。朝の payload 更新を待たず日中の追加・完了を反映）
+        SectionCard(title: "今日のタスク") {
+            if state.dailyTodos.isEmpty {
+                EmptyRow(message: "今日のタスクはありません")
+            } else {
+                ForEach(state.dailyTodos) { todo in
+                    dailyTodoRow(todo)
+                }
+            }
+            addDailyTodoRow
+        }
+
         // 締切 = Canvas 課題のみ（14 日先まで収集）。Google カレンダー終日は下の別グループへ。
         // HOME は「今やるべきこと」のみ表示。完了済みはカレンダータブで確認・解除できる
         let deadlines = payload.deadlines.filter { $0.source == "canvas" && !state.isDeadlineCompleted($0) }
@@ -157,6 +187,74 @@ struct HomeView: View {
             } else {
                 todoRepoSummaries(payload)
             }
+        }
+    }
+
+    // MARK: 今日のタスク（表示・完了チェック・常設入力行）
+
+    private func dailyTodoRow(_ todo: DailyTodoItem) -> some View {
+        let done = todo.completedAt != nil
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Button {
+                Task { await state.toggleDailyTodoCompleted(todo) }
+            } label: {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(done ? Color.doneGreen : Color.secondary)
+            }
+            .buttonStyle(.plain)
+            Text(todo.text)
+                .font(.subheadline)
+                .strikethrough(done)
+                .foregroundStyle(done ? .secondary : .primary)
+            Spacer()
+        }
+    }
+
+    private var addDailyTodoRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField("タスクを追加…", text: $newDailyTodoText)
+                .font(.subheadline)
+                .submitLabel(.send)
+                .onSubmit(submitNewDailyTodo)
+                .disabled(isAddingDailyTodo)
+            if isAddingDailyTodo {
+                ProgressView()
+            } else {
+                Button(action: submitNewDailyTodo) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(canSubmitDailyTodo ? Color.coralAccent : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSubmitDailyTodo)
+            }
+        }
+    }
+
+    private var canSubmitDailyTodo: Bool {
+        !newDailyTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// タスクを追加して、成功したら入力欄をクリアする（一覧への反映は AppState 側）
+    private func submitNewDailyTodo() {
+        let text = newDailyTodoText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isAddingDailyTodo else { return }
+        guard state.isConfigured else {
+            addDailyTodoError = "Setting タブでバックエンドの URL と共有シークレットを設定してください"
+            return
+        }
+        isAddingDailyTodo = true
+        Task {
+            do {
+                try await state.addDailyTodo(text: text)
+                newDailyTodoText = ""
+            } catch {
+                addDailyTodoError = error.localizedDescription
+            }
+            isAddingDailyTodo = false
         }
     }
 

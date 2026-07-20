@@ -68,6 +68,10 @@
     width: 64px; padding: 6px 8px; font: inherit; font-size: 12.5px; text-align: right;
     background: #0C1116; color: #E6EDF3; border: 1px solid #1F2A35; border-radius: 6px;
   }
+  .text-input {
+    width: 300px; max-width: 100%; padding: 6px 10px; font: inherit; font-size: 12.5px;
+    background: #0C1116; color: #E6EDF3; border: 1px solid #1F2A35; border-radius: 6px;
+  }
   .briefing-block {
     font-size: 14px; line-height: 1.7; border: 1px solid #1F2A35; border-radius: 8px;
     padding: 16px 20px; background: #111820;
@@ -85,6 +89,7 @@
       <a href="#" data-page="calendar">カレンダー</a>
       <a href="#" data-page="github">GitHub</a>
       <a href="#" data-page="shopping">買い物リスト</a>
+      <a href="#" data-page="tasks">タスク</a>
       <a href="#" data-page="ai">AI 利用状況</a>
       <a href="#" data-page="system">システム</a>
       <a href="#" data-page="settings">設定</a>
@@ -147,6 +152,21 @@
     <div class="run-row" style="margin-top:10px">
       <button class="btn btn-secondary" id="shoppingReloadBtn">再読み込み</button>
     </div>
+    </section>
+
+    <section id="page-tasks" hidden>
+    <h1>タスク</h1>
+    <p class="page-sub" id="tasksSub">未読み込み</p>
+
+    <div class="run-row">
+      <input type="text" class="text-input" id="taskText" placeholder="タスクを追加…" maxlength="200">
+      <button class="btn btn-primary" id="taskAddBtn">追加</button>
+      <span class="dim" id="taskMsg"></span>
+    </div>
+
+    <h2>今日のタスク <span class="faint mono" id="tasksCount"></span></h2>
+    <div class="card" id="tasksCard"><div class="empty">（なし）</div></div>
+    <p class="page-sub" style="margin-top:8px">チェック = 完了。未完了は日をまたいで繰り越し、完了分は当日（シアトル時刻）のみ表示されます</p>
     </section>
 
     <section id="page-ai" hidden>
@@ -435,6 +455,71 @@ async function refreshShopping() {
 
 $('shoppingReloadBtn').onclick = refreshShopping;
 
+// タスクタブ（GET/POST /admin/daily-todos。完了チェックは POST /admin/daily-todos/complete）
+async function refreshTasks() {
+  $('tasksSub').textContent = '読み込み中…';
+  let d;
+  try {
+    d = await api('/admin/daily-todos');
+  } catch (e) {
+    $('tasksSub').textContent = e.message;
+    return;
+  }
+  const open = d.todos.filter((t) => !t.completedAt).length;
+  $('tasksSub').textContent = `未完了 ${open} 件（日々の作業タスク。iOS アプリと共通）`;
+  $('tasksCount').textContent = d.todos.length ? `${d.todos.length} 件` : '';
+
+  renderTable($('tasksCard'), d.todos, ['', 'タスク', '追加', '完了'], (t) => `
+    <td><input type="checkbox" data-id="${t.id}" ${t.completedAt ? 'checked' : ''}></td>
+    <td${t.completedAt ? ' style="text-decoration:line-through; color:#66737F"' : ''}>${esc(t.text)}</td>
+    <td class="mono dim">${seattle(t.createdAt)}</td>
+    <td class="mono dim">${t.completedAt ? seattle(t.completedAt) : ''}</td>`);
+
+  // 完了チェック: 成功したら再描画して取り消し線を反映する（カレンダーページと同方式）
+  $('tasksCard').querySelectorAll('input[type=checkbox]').forEach((cb) => {
+    cb.onchange = async () => {
+      cb.disabled = true;
+      try {
+        await api('/admin/daily-todos/complete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: Number(cb.dataset.id), completed: cb.checked }),
+        });
+        refreshTasks();
+      } catch (e) {
+        cb.checked = !cb.checked;
+        cb.disabled = false;
+        $('tasksSub').textContent = e.message;
+      }
+    };
+  });
+}
+
+$('taskAddBtn').onclick = async () => {
+  const text = $('taskText').value.trim();
+  if (!text) return;
+  $('taskAddBtn').disabled = true;
+  $('taskMsg').textContent = '追加中…';
+  try {
+    await api('/admin/daily-todos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    $('taskText').value = '';
+    $('taskMsg').textContent = '';
+    refreshTasks();
+  } catch (e) {
+    $('taskMsg').textContent = e.message;
+  } finally {
+    $('taskAddBtn').disabled = false;
+  }
+};
+
+$('taskText').onkeydown = (e) => {
+  if (e.key === 'Enter') $('taskAddBtn').click();
+};
+
 // AI 利用状況タブ（GET /admin/ai-usage）
 async function refreshAi() {
   $('aiSub').textContent = '読み込み中…';
@@ -476,12 +561,13 @@ async function refreshAi() {
 
 // サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
 // dashboard と system は同じ /admin/status を共有するので refresh() が両セクションを埋める
-const PAGES = ['dashboard', 'calendar', 'github', 'shopping', 'ai', 'system', 'settings'];
+const PAGES = ['dashboard', 'calendar', 'github', 'shopping', 'tasks', 'ai', 'system', 'settings'];
 const PAGE_REFRESH = {
   dashboard: refresh,
   calendar: refreshCalendar,
   github: refreshGithub,
   shopping: refreshShopping,
+  tasks: refreshTasks,
   ai: refreshAi,
   system: refresh,
   settings: refreshSettings,

@@ -10,6 +10,7 @@ import {
   insertCollectorRun,
   insertLlmUsage,
   listCompletedDeadlineUids,
+  listOpenDailyTodos,
   saveRepoSummaryCache,
   saveTodoSummaryCache,
 } from '../db/repo.js';
@@ -249,6 +250,10 @@ async function main(): Promise<void> {
     input.todos,
     todoSummaries,
   );
+  // 日々のタスクは生成時点の未完了分をスナップショットとして同梱する
+  // （正本は GET /todos/daily のライブ取得。LLM プロンプトには当面入れない = 買い物リストと同方針）
+  const dailyTodos = listOpenDailyTodos();
+  if (dailyTodos.length > 0) briefing.payload.dailyTodos = dailyTodos;
   insertLlmUsage({ briefingDate: input.date, purpose: 'briefing', ...briefing.usage });
   console.log(
     `LLM: ${briefing.usage.model} 入力 ${briefing.usage.inputTokens} / 出力 ${briefing.usage.outputTokens} トークン` +

@@ -11,6 +11,9 @@
 //   GET  /deadlines           — 最新の Canvas 締切 + 手動完了フラグ（アプリの状態同期用）
 //   POST /deadlines/complete  — 締切の手動完了チェック {uid, completed}
 //   POST /todos/repo          — リポジトリの TODO.md へタスクを追記 {repo, text}
+//   GET  /todos/daily         — 日々のタスク一覧（未完了 + 当日シアトル時刻の完了分）
+//   POST /todos/daily         — 日々のタスクを追加 {text}
+//   POST /todos/daily/complete — 日々のタスクの完了/取り消し {id, completed}
 // 管理画面用（Bearer なし・ADMIN_ENABLED=on のときのみ）:
 //   GET  /admin               — 管理画面（静的 HTML）
 //   GET  /admin/status        — 管理用の状態スナップショット
@@ -22,19 +25,24 @@
 //   GET/PUT /admin/settings   — 収集設定（Canvas 締切の先読み日数）
 //   POST /admin/run-briefing  — ブリーフィングジョブの手動実行
 //   POST /admin/deadlines/complete — 締切の手動完了チェック（管理画面から。処理は iOS 用と同一）
+//   GET/POST /admin/daily-todos, POST /admin/daily-todos/complete — 日々のタスク（処理は iOS 用と同一）
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BACKEND_ROOT, config } from './config.js';
 import {
+  addDailyTodo,
   completeDeadline,
   latestBriefing,
   latestCollectorRunRaw,
   listCompletedDeadlineUids,
+  listDailyTodos,
+  setDailyTodoCompleted,
   uncompleteDeadline,
   upsertDevice,
 } from './db/repo.js';
+import { tzDayRange } from './util/time.js';
 import {
   getAdminSettings,
   getAiUsage,
@@ -304,6 +312,61 @@ async function handleAddRepoTodo(body: string, res: http.ServerResponse): Promis
   }
 }
 
+// 日々のタスク（daily_todos）。「当日の完了分」の日境界はブリーフィングと同じシアトル時刻
+function handleListDailyTodos(res: http.ServerResponse): void {
+  const dayStart = tzDayRange(new Date(), config.briefing.tz).start;
+  // completed_at（datetime('now') の 'YYYY-MM-DD HH:MM:SS' UTC）と辞書順比較できる形式に直す
+  const completedSinceUtc = dayStart.toISOString().slice(0, 19).replace('T', ' ');
+  sendJson(res, 200, { todos: listDailyTodos(completedSinceUtc) });
+}
+
+function handleAddDailyTodo(body: string, res: http.ServerResponse): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { text } = parsed as { text?: unknown };
+  if (typeof text !== 'string') {
+    sendJson(res, 400, { error: 'text は文字列で指定してください' });
+    return;
+  }
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_TODO_TEXT_LENGTH || /[\r\n]/.test(trimmed)) {
+    sendJson(res, 400, {
+      error: `text は改行なしの 1〜${MAX_TODO_TEXT_LENGTH} 文字で指定してください`,
+    });
+    return;
+  }
+  sendJson(res, 200, { ok: true, todo: addDailyTodo(trimmed) });
+}
+
+function handleCompleteDailyTodo(body: string, res: http.ServerResponse): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { id, completed } = parsed as { id?: unknown; completed?: unknown };
+  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+    sendJson(res, 400, { error: 'id は正の整数で指定してください' });
+    return;
+  }
+  if (typeof completed !== 'boolean') {
+    sendJson(res, 400, { error: 'completed は true/false で指定してください' });
+    return;
+  }
+  if (!setDailyTodoCompleted(id, completed)) {
+    sendJson(res, 404, { error: '指定された id のタスクが見つかりません' });
+    return;
+  }
+  sendJson(res, 200, { ok: true, id, completed });
+}
+
 const ADMIN_HTML_PATH = path.join(BACKEND_ROOT, 'assets', 'admin.html');
 
 function serveAdminPage(res: http.ServerResponse): void {
@@ -465,6 +528,31 @@ export function createServer(secret: string): http.Server {
         return;
       }
 
+      // 管理画面のタスクページ用。処理は iOS 用 /todos/daily 系と同一
+      if (path === '/admin/daily-todos') {
+        if (req.method === 'GET') {
+          handleListDailyTodos(res);
+          return;
+        }
+        if (req.method === 'POST') {
+          const body = await readBody(req, res);
+          if (body !== null) handleAddDailyTodo(body, res);
+          return;
+        }
+        sendJson(res, 405, { error: 'GET または POST を使ってください' });
+        return;
+      }
+
+      if (path === '/admin/daily-todos/complete') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleCompleteDailyTodo(body, res);
+        return;
+      }
+
       // /admin* で未定義のパスはここで打ち切る（下の Bearer 必須帯に流さない）
       if (path.startsWith('/admin/')) {
         sendJson(res, 404, { error: 'not found' });
@@ -522,6 +610,30 @@ export function createServer(secret: string): http.Server {
         }
         const body = await readBody(req, res);
         if (body !== null) await handleAddRepoTodo(body, res);
+        return;
+      }
+
+      if (path === '/todos/daily') {
+        if (req.method === 'GET') {
+          handleListDailyTodos(res);
+          return;
+        }
+        if (req.method === 'POST') {
+          const body = await readBody(req, res);
+          if (body !== null) handleAddDailyTodo(body, res);
+          return;
+        }
+        sendJson(res, 405, { error: 'GET または POST を使ってください' });
+        return;
+      }
+
+      if (path === '/todos/daily/complete') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) handleCompleteDailyTodo(body, res);
         return;
       }
 

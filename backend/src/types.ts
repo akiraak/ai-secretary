@@ -87,6 +87,14 @@ export interface RepoOverview {
   todoCount: number; // TODO.md の未完了件数（0 = TODO.md 無し）
 }
 
+/** 日々の作業タスク 1 件（daily_todos テーブル由来。リポジトリの TODO.md とは別系統） */
+export interface DailyTodoItem {
+  id: number;
+  text: string;
+  createdAt: string; // ISO8601 (UTC)
+  completedAt?: string; // ISO8601 (UTC)。無し = 未完了
+}
+
 /** kitchen-living の共有買い物リストの未購入品 1 件 */
 export interface ShoppingItem {
   name: string;
@@ -154,6 +162,8 @@ export interface BriefingPayload {
   repos?: RepoOverview[];
   /** 買い物リストの未購入品。旧 payload・コレクタ失敗時には無い */
   shopping?: ShoppingItem[];
+  /** 生成時点の未完了の日々タスク（スナップショット。正本は GET /todos/daily）。旧 payload には無い */
+  dailyTodos?: DailyTodoItem[];
   mails: MailItem[];
   github: GithubItem[];
 }

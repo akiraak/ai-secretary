@@ -1,6 +1,6 @@
 // devices / briefings / collector_runs への読み書き。SQL はこのファイルに集約する。
 import { getDb } from './index.js';
-import type { BriefingRow, DeviceRow } from '../types.js';
+import type { BriefingRow, DailyTodoItem, DeviceRow } from '../types.js';
 
 /** デバイストークンを登録する。既存トークンなら platform と updated_at を更新する。 */
 export function upsertDevice(token: string, platform = 'ios'): DeviceRow {
@@ -200,6 +200,70 @@ export function saveRepoSummaryCache(hash: string, summary: string): void {
        created_at = datetime('now')`,
   ).run(hash, summary);
   db.prepare("DELETE FROM repo_summary_cache WHERE created_at < datetime('now', '-30 days')").run();
+}
+
+/** daily_todos テーブル 1 行 */
+interface DailyTodoRow {
+  id: number;
+  text: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+/** SQLite の datetime('now')（'YYYY-MM-DD HH:MM:SS' UTC）を ISO8601 に直す。 */
+function sqliteUtcToIso(s: string): string {
+  return `${s.replace(' ', 'T')}Z`;
+}
+
+function toDailyTodoItem(row: DailyTodoRow): DailyTodoItem {
+  return {
+    id: row.id,
+    text: row.text,
+    createdAt: sqliteUtcToIso(row.created_at),
+    ...(row.completed_at ? { completedAt: sqliteUtcToIso(row.completed_at) } : {}),
+  };
+}
+
+/** 日々のタスクを追加する。 */
+export function addDailyTodo(text: string): DailyTodoItem {
+  const row = getDb()
+    .prepare('INSERT INTO daily_todos (text) VALUES (?) RETURNING *')
+    .get(text) as DailyTodoRow;
+  return toDailyTodoItem(row);
+}
+
+/**
+ * 日々のタスク一覧: 未完了全件 + completedSinceUtc（'YYYY-MM-DD HH:MM:SS' UTC =
+ * シアトル時刻の当日 0 時）以降に完了した分。追加順。
+ */
+export function listDailyTodos(completedSinceUtc: string): DailyTodoItem[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM daily_todos
+       WHERE completed_at IS NULL OR completed_at >= ? ORDER BY id`,
+    )
+    .all(completedSinceUtc) as DailyTodoRow[];
+  return rows.map(toDailyTodoItem);
+}
+
+/** 未完了の日々タスク全件（briefing payload のスナップショット用）。追加順。 */
+export function listOpenDailyTodos(): DailyTodoItem[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM daily_todos WHERE completed_at IS NULL ORDER BY id')
+    .all() as DailyTodoRow[];
+  return rows.map(toDailyTodoItem);
+}
+
+/** 日々のタスクの完了/取り消し。行が無ければ false。 */
+export function setDailyTodoCompleted(id: number, completed: boolean): boolean {
+  const result = getDb()
+    .prepare(
+      completed
+        ? "UPDATE daily_todos SET completed_at = datetime('now') WHERE id = ?"
+        : 'UPDATE daily_todos SET completed_at = NULL WHERE id = ?',
+    )
+    .run(id);
+  return result.changes > 0;
 }
 
 /** calendar_items の 1 行（変更検知用スナップショット） */

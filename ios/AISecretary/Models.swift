@@ -30,8 +30,23 @@ struct BriefingPayload: Codable, Equatable {
     let repos: [RepoOverview]?
     /// 買い物リストの未購入品。旧 payload・コレクタ失敗時には無い
     let shopping: [ShoppingItem]?
+    /// 生成時点の未完了の日々タスク（スナップショット。正本は GET /todos/daily）。旧 payload には無い
+    let dailyTodos: [DailyTodoItem]?
     let mails: [MailItem]
     let github: [GithubItem]
+}
+
+/// 日々の作業タスク 1 件（daily_todos テーブル由来。リポジトリの TODO.md とは別系統）
+struct DailyTodoItem: Codable, Equatable, Identifiable {
+    let id: Int
+    let text: String
+    let createdAt: String // ISO8601 (UTC)
+    let completedAt: String? // nil = 未完了
+}
+
+/// GET /todos/daily のレスポンス（server.ts handleListDailyTodos）
+struct DailyTodosResponse: Codable, Equatable {
+    let todos: [DailyTodoItem]
 }
 
 /// kitchen-living の共有買い物リストの未購入品 1 件

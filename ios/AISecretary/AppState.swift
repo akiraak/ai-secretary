@@ -46,6 +46,10 @@ final class AppState {
     private(set) var completedDeadlineUids: Set<String> = []
     /// 完了チェックの通信中 uid（連打防止）
     private var togglingDeadlineUids: Set<String> = []
+    /// 日々のタスク（GET /todos/daily のライブ取得。briefing payload とは独立）
+    private(set) var dailyTodos: [DailyTodoItem] = []
+    /// 日々タスクの完了チェックの通信中 id（連打防止）
+    private var togglingDailyTodoIds: Set<Int> = []
 
     private let defaults = UserDefaults.standard
 
@@ -139,6 +143,7 @@ final class AppState {
                 ? "まだブリーフィングがありません（backend で npm run briefing を実行）"
                 : nil
             await syncDeadlineCompletions()
+            await refreshDailyTodos()
             // 設定変更後の取り直しついでに、未登録トークンがあれば登録も試みる
             await registerDeviceIfPossible()
         } catch {
@@ -181,6 +186,49 @@ final class AppState {
             if newValue { completedDeadlineUids.remove(uid) } else { completedDeadlineUids.insert(uid) }
             lastErrorMessage = "締切の完了チェックを保存できませんでした: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: 日々のタスク
+
+    /// サーバから日々のタスクを取り直す。失敗時は payload のスナップショット（朝時点の未完了分）へフォールバック
+    func refreshDailyTodos() async {
+        guard let client else { return }
+        do {
+            dailyTodos = try await client.fetchDailyTodos()
+        } catch {
+            if dailyTodos.isEmpty {
+                dailyTodos = briefing?.payload.dailyTodos ?? []
+            }
+        }
+    }
+
+    /// タスクを追加して一覧末尾に反映する。失敗時は throw（呼び出し元でアラート表示）
+    func addDailyTodo(text: String) async throws {
+        guard let client else { return }
+        dailyTodos.append(try await client.addDailyTodo(text: text))
+    }
+
+    /// 完了チェックをトグルする（楽観的更新。失敗時は元に戻してエラー表示）
+    func toggleDailyTodoCompleted(_ todo: DailyTodoItem) async {
+        guard let client, !togglingDailyTodoIds.contains(todo.id) else { return }
+        let newValue = todo.completedAt == nil
+        togglingDailyTodoIds.insert(todo.id)
+        defer { togglingDailyTodoIds.remove(todo.id) }
+
+        // 楽観的更新の completedAt は表示判定（nil か否か）にしか使わない仮の値。正確な値は次回取得で同期する
+        setDailyTodoLocal(id: todo.id, completedAt: newValue ? ISO8601DateFormatter().string(from: .now) : nil)
+        do {
+            try await client.setDailyTodoCompleted(id: todo.id, completed: newValue)
+        } catch {
+            setDailyTodoLocal(id: todo.id, completedAt: todo.completedAt)
+            lastErrorMessage = "タスクの完了チェックを保存できませんでした: \(error.localizedDescription)"
+        }
+    }
+
+    private func setDailyTodoLocal(id: Int, completedAt: String?) {
+        guard let i = dailyTodos.firstIndex(where: { $0.id == id }) else { return }
+        let t = dailyTodos[i]
+        dailyTodos[i] = DailyTodoItem(id: t.id, text: t.text, createdAt: t.createdAt, completedAt: completedAt)
     }
 
     /// 通知タップ → HOME を開いて最新を取り直す

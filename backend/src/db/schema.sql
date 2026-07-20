@@ -111,3 +111,12 @@ CREATE TABLE IF NOT EXISTS settings (
   value      TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 日々の作業タスク（iOS / 管理画面から追加・完了。リポジトリの TODO.md とは別系統）。
+-- 未完了は日をまたいで残る。削除は持たず、誤追加は完了で消す
+CREATE TABLE IF NOT EXISTS daily_todos (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  text         TEXT NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT                              -- NULL = 未完了
+);
