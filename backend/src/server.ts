@@ -15,6 +15,7 @@
 //   GET  /admin/status        — 管理用の状態スナップショット
 //   GET  /admin/ai-usage      — AI 利用状況（サマリ + 月別 + 直近の呼び出し）
 //   GET  /admin/calendar-info — カレンダータブ用（今日の予定 + 締切と完了状態）
+//   GET  /admin/github-info   — GitHub タブ用（リポジトリ一覧 + 昨日の活動。最新ブリーフィング由来）
 //   GET  /admin/shopping      — 買い物リスト（共有リスト API をライブ取得）
 //   GET/PUT /admin/calendars  — 収集対象カレンダーの一覧・保存
 //   GET/PUT /admin/settings   — 収集設定（Canvas 締切の先読み日数）
@@ -37,6 +38,7 @@ import {
   getAdminSettings,
   getAiUsage,
   getCalendarInfo,
+  getGithubInfo,
   getShoppingList,
   getStatus,
   listCalendars,
@@ -315,6 +317,15 @@ export function createServer(secret: string): http.Server {
           return;
         }
         sendJson(res, 200, getCalendarInfo());
+        return;
+      }
+
+      if (path === '/admin/github-info') {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET を使ってください' });
+          return;
+        }
+        sendJson(res, 200, getGithubInfo());
         return;
       }
 

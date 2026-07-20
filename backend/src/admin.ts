@@ -19,7 +19,7 @@ import {
   recentPushLogs,
 } from './db/repo.js';
 import { config } from './config.js';
-import type { DeadlineItem, EventItem } from './types.js';
+import type { BriefingPayload, DeadlineItem, EventItem } from './types.js';
 import {
   getCanvasLookaheadDays,
   resolveCalendarIds,
@@ -165,6 +165,24 @@ export function getCalendarInfo(): unknown {
   return {
     events: { collectedAt: calRun?.created_at ?? null, items: cal.events ?? [] },
     deadlines: { collectedAt: canvasRun?.created_at ?? null, items: deadlines },
+  };
+}
+
+/**
+ * GitHub ページ用の集約（GET /admin/github-info）。
+ * 最新ブリーフィングの payload から組み立てる。LLM 生成の recentSummary / todoSummary は
+ * payload にしか無いため、collector_runs（github_repos は join 前の生データ）ではなく
+ * payload を使う。鮮度は毎朝のブリーフィング実行に依存（カレンダーページと同じ）。
+ * 旧 payload（repos 無し）・ブリーフィング未生成時は空配列を返す。
+ */
+export function getGithubInfo(): unknown {
+  const row = latestBriefing();
+  const payload = parseRawJson<Partial<BriefingPayload>>(row?.payload_json, {});
+  return {
+    briefingDate: row?.briefing_date ?? null,
+    generatedAt: row?.created_at ?? null,
+    repos: payload.repos ?? [],
+    activity: payload.github ?? [],
   };
 }
 

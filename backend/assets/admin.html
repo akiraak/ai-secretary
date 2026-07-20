@@ -83,6 +83,7 @@
     <nav>
       <a href="#" class="active" data-page="dashboard">ダッシュボード</a>
       <a href="#" data-page="calendar">カレンダー</a>
+      <a href="#" data-page="github">GitHub</a>
       <a href="#" data-page="shopping">買い物リスト</a>
       <a href="#" data-page="ai">AI 利用状況</a>
       <a href="#" data-page="system">システム</a>
@@ -124,6 +125,17 @@
     <h2>今後の締切 <span class="faint mono" id="calDeadlinesAt"></span></h2>
     <div class="card" id="calDeadlinesCard"><div class="empty">（なし）</div></div>
     <p class="page-sub" style="margin-top:8px">チェック = 手動完了（Canvas 締切のみ。翌朝のブリーフィング通知から除外されます）</p>
+    </section>
+
+    <section id="page-github" hidden>
+    <h1>GitHub</h1>
+    <p class="page-sub" id="ghSub">未読み込み</p>
+
+    <h2>リポジトリ（直近 90 日に push・更新順） <span class="faint mono" id="ghReposCount"></span></h2>
+    <div class="card" id="ghRepos"><div class="empty">（なし）</div></div>
+
+    <h2>昨日の活動（commits / PR） <span class="faint mono" id="ghActivityCount"></span></h2>
+    <div class="card" id="ghActivity"><div class="empty">（なし）</div></div>
     </section>
 
     <section id="page-shopping" hidden>
@@ -371,6 +383,37 @@ async function refreshCalendar() {
   });
 }
 
+// GitHub タブ（GET /admin/github-info。最新ブリーフィングの payload 由来）
+async function refreshGithub() {
+  $('ghSub').textContent = '読み込み中…';
+  let d;
+  try {
+    d = await api('/admin/github-info');
+  } catch (e) {
+    $('ghSub').textContent = e.message;
+    return;
+  }
+  $('ghSub').textContent = d.briefingDate
+    ? `ブリーフィング ${d.briefingDate} 時点のデータです（生成 ${seattle(d.generatedAt)}・シアトル時刻）`
+    : 'まだブリーフィングがありません';
+  $('ghReposCount').textContent = d.repos.length ? `${d.repos.length} 件` : '';
+  $('ghActivityCount').textContent = d.activity.length ? `${d.activity.length} 件` : '';
+
+  renderTable($('ghRepos'), d.repos, ['リポジトリ', '最終 push', '直近の作業', 'TODO'], (r) => `
+    <td class="mono"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.repo)}</a></td>
+    <td class="mono dim">${seattle(r.pushedAt)}</td>
+    <td>${r.recentSummary ? esc(r.recentSummary)
+      : r.commits && r.commits.length ? `<span class="dim">${esc(r.commits[0].message)}</span>` : ''}</td>
+    <td>${r.todoCount > 0
+      ? `${r.todoCount} 件${r.todoSummary ? `<div class="dim" style="margin-top:2px">${esc(r.todoSummary)}</div>` : ''}`
+      : '<span class="faint">—</span>'}</td>`);
+
+  renderTable($('ghActivity'), d.activity, ['リポジトリ', '種別', '内容'], (r) => `
+    <td class="mono dim">${esc(r.repo)}</td>
+    <td class="mono dim">${r.kind === 'pr' ? 'PR' : 'commit'}</td>
+    <td>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)}</td>`);
+}
+
 // 買い物リストタブ（GET /admin/shopping。共有リスト API をライブ取得）
 async function refreshShopping() {
   $('shoppingSub').textContent = '読み込み中…';
@@ -433,10 +476,11 @@ async function refreshAi() {
 
 // サイドバーのページ切り替え（単一 HTML 内でセクションを出し分ける）
 // dashboard と system は同じ /admin/status を共有するので refresh() が両セクションを埋める
-const PAGES = ['dashboard', 'calendar', 'shopping', 'ai', 'system', 'settings'];
+const PAGES = ['dashboard', 'calendar', 'github', 'shopping', 'ai', 'system', 'settings'];
 const PAGE_REFRESH = {
   dashboard: refresh,
   calendar: refreshCalendar,
+  github: refreshGithub,
   shopping: refreshShopping,
   ai: refreshAi,
   system: refresh,
