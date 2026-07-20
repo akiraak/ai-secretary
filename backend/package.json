@@ -16,6 +16,7 @@
     "google:auth": "tsx src/auth/googleGetToken.ts",
     "collectors:check": "tsx src/collectors/check.ts",
     "diff:check": "tsx src/jobs/calendarDiffCheck.ts",
+    "todo-write:check": "tsx src/githubWriteCheck.ts",
     "llm:check": "tsx src/llm/check.ts",
     "apns:check": "tsx src/push/check.ts",
     "briefing": "tsx src/jobs/runBriefing.ts"

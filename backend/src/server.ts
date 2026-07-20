@@ -10,6 +10,7 @@
 //   GET  /briefings/latest    — 最新ブリーフィング JSON（アプリのプル元）
 //   GET  /deadlines           — 最新の Canvas 締切 + 手動完了フラグ（アプリの状態同期用）
 //   POST /deadlines/complete  — 締切の手動完了チェック {uid, completed}
+//   POST /todos/repo          — リポジトリの TODO.md へタスクを追記 {repo, text}
 // 管理画面用（Bearer なし・ADMIN_ENABLED=on のときのみ）:
 //   GET  /admin               — 管理画面（静的 HTML）
 //   GET  /admin/status        — 管理用の状態スナップショット
@@ -47,6 +48,7 @@ import {
   updateCanvasLookaheadDays,
 } from './admin.js';
 import { CANVAS_LOOKAHEAD_MAX, CANVAS_LOOKAHEAD_MIN } from './settings.js';
+import { RepoTodoError, addRepoTodo } from './githubWrite.js';
 import type { BriefingPayload, DeadlineItem } from './types.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -237,6 +239,69 @@ function handleCompleteDeadline(body: string, res: http.ServerResponse): void {
   }
   completeDeadline(uid, item.title, item.dueAt);
   sendJson(res, 200, { ok: true, uid, completed: true });
+}
+
+// TODO 追記対象のリポジトリ名（owner/name）とタスク 1 行の制限
+const REPO_NAME_RE = /^[\w.-]+\/[\w.-]+$/;
+const MAX_TODO_TEXT_LENGTH = 200;
+
+/**
+ * TODO 追記を許可するリポジトリ集合。最新ブリーフィング payload の repos 一覧が正で、
+ * 無ければ GITHUB_REPOS の明示 owner/repo エントリ（ローカルパス・`*` は対象外）。
+ * トークンで見える任意のリポジトリへ書けないよう対象を限定する（シークレット漏洩時の被害限定）。
+ */
+function todoWritableRepos(): Set<string> {
+  const row = latestBriefing();
+  if (row) {
+    try {
+      const payload = JSON.parse(row.payload_json) as BriefingPayload;
+      const repos = new Set((payload.repos ?? []).map((r) => r.repo));
+      if (repos.size > 0) return repos;
+    } catch {
+      // payload が読めなければ GITHUB_REPOS へフォールバック
+    }
+  }
+  return new Set(config.github.repos.filter((e) => REPO_NAME_RE.test(e)));
+}
+
+async function handleAddRepoTodo(body: string, res: http.ServerResponse): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    sendJson(res, 400, { error: 'JSON がパースできません' });
+    return;
+  }
+  const { repo, text } = parsed as { repo?: unknown; text?: unknown };
+  if (typeof repo !== 'string' || !REPO_NAME_RE.test(repo)) {
+    sendJson(res, 400, { error: 'repo は owner/name 形式で指定してください' });
+    return;
+  }
+  if (typeof text !== 'string') {
+    sendJson(res, 400, { error: 'text は文字列で指定してください' });
+    return;
+  }
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_TODO_TEXT_LENGTH || /[\r\n]/.test(trimmed)) {
+    sendJson(res, 400, {
+      error: `text は改行なしの 1〜${MAX_TODO_TEXT_LENGTH} 文字で指定してください`,
+    });
+    return;
+  }
+  if (!todoWritableRepos().has(repo)) {
+    sendJson(res, 400, { error: `対象外のリポジトリです: ${repo}` });
+    return;
+  }
+  try {
+    const { url } = await addRepoTodo(repo, trimmed);
+    sendJson(res, 200, { ok: true, repo, text: trimmed, url });
+  } catch (e) {
+    if (e instanceof RepoTodoError) {
+      sendJson(res, e.status, { error: e.message });
+      return;
+    }
+    sendJson(res, 502, { error: `TODO の追加に失敗しました: ${(e as Error).message}` });
+  }
 }
 
 const ADMIN_HTML_PATH = path.join(BACKEND_ROOT, 'assets', 'admin.html');
@@ -447,6 +512,16 @@ export function createServer(secret: string): http.Server {
         }
         const body = await readBody(req, res);
         if (body !== null) handleCompleteDeadline(body, res);
+        return;
+      }
+
+      if (path === '/todos/repo') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'POST を使ってください' });
+          return;
+        }
+        const body = await readBody(req, res);
+        if (body !== null) await handleAddRepoTodo(body, res);
         return;
       }
 

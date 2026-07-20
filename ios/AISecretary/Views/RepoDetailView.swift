@@ -12,6 +12,13 @@ struct RepoDetailView: View {
     @State private var showAllTodos = false
     @State private var showAllCommits = false
 
+    // TODO 追加（POST /todos/repo）
+    @State private var newTodoText = ""
+    @State private var isAddingTodo = false
+    /// この画面で追加したタスク（payload の正本反映は翌朝のブリーフィングなので、それまで連結表示する）
+    @State private var addedTodos: [TodoItem] = []
+    @State private var addTodoError: String?
+
     private var payload: BriefingPayload? { state.briefing?.payload }
 
     /// owner/name の name 部分（画面タイトル用）
@@ -33,9 +40,8 @@ struct RepoDetailView: View {
     var body: some View {
         List {
             headerSection
-            if overview.todoSummary != nil || !todos.isEmpty {
-                todoSection
-            }
+            // タスク追加の入力行を常設するため、TODO が空でもセクションは出す
+            todoSection
             recentSection
             if !yesterdayItems.isEmpty {
                 yesterdaySection
@@ -43,6 +49,17 @@ struct RepoDetailView: View {
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
+        .alert(
+            "TODO を追加できませんでした",
+            isPresented: Binding(
+                get: { addTodoError != nil },
+                set: { if !$0 { addTodoError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(addTodoError ?? "")
+        }
     }
 
     // MARK: ヘッダ
@@ -120,17 +137,77 @@ struct RepoDetailView: View {
             }
             let visible = showAllTodos ? todos : Array(todos.prefix(Self.collapseLimit))
             ForEach(visible.indices, id: \.self) { i in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: "circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(visible[i].text)
-                        .font(.subheadline)
-                }
+                todoRow(visible[i])
             }
             if todos.count > Self.collapseLimit {
                 expandButton(isOpen: $showAllTodos, hiddenCount: todos.count - Self.collapseLimit)
             }
+            // この画面で追加した分は折りたたみの外に置き、追加直後から常に見えるようにする
+            ForEach(addedTodos.indices, id: \.self) { i in
+                todoRow(addedTodos[i])
+            }
+            addTodoRow
+        }
+    }
+
+    private func todoRow(_ todo: TodoItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(todo.text)
+                .font(.subheadline)
+        }
+    }
+
+    // MARK: TODO 追加（常設の入力行）
+
+    private var addTodoRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField("タスクを追加…", text: $newTodoText)
+                .font(.subheadline)
+                .submitLabel(.send)
+                .onSubmit(submitNewTodo)
+                .disabled(isAddingTodo)
+            if isAddingTodo {
+                ProgressView()
+            } else {
+                Button(action: submitNewTodo) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(canSubmitTodo ? Color.coralAccent : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSubmitTodo)
+            }
+        }
+    }
+
+    private var canSubmitTodo: Bool {
+        !newTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// TODO.md へ追記して、成功したら入力欄をクリアし一覧末尾に楽観追加する
+    private func submitNewTodo() {
+        let text = newTodoText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isAddingTodo else { return }
+        guard let client = state.client else {
+            addTodoError = "Setting タブでバックエンドの URL と共有シークレットを設定してください"
+            return
+        }
+        isAddingTodo = true
+        Task {
+            do {
+                try await client.addRepoTodo(repo: overview.repo, text: text)
+                addedTodos.append(TodoItem(repo: overview.repo, text: text))
+                newTodoText = ""
+            } catch {
+                addTodoError = error.localizedDescription
+            }
+            isAddingTodo = false
         }
     }
 

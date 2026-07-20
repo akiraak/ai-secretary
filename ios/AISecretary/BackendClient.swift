@@ -61,6 +61,19 @@ struct BackendClient {
         return try JSONDecoder().decode(DeadlinesResponse.self, from: data)
     }
 
+    /// リポジトリの TODO.md へタスクを 1 行追記する（POST /todos/repo）
+    func addRepoTodo(repo: String, text: String) async throws {
+        struct Body: Encodable {
+            let repo: String
+            let text: String
+        }
+        var request = makeRequest(path: "/todos/repo", method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(Body(repo: repo, text: text))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.ensureOK(data: data, response: response)
+    }
+
     /// 締切の手動完了チェックを更新する（POST /deadlines/complete）
     func setDeadlineCompleted(uid: String, completed: Bool) async throws {
         struct Body: Encodable {

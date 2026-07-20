@@ -22,7 +22,10 @@ g3plus（Ubuntu）に backend を配置し、
   `/admin*`（データ API 含む）は **Bearer 認証なし**で、認証は前段の Cloudflare Access に一本化している。
   Access のアプリケーションパスが `/admin` 配下（`/admin/*` を含むプレフィックス）をカバーしていることを
   確認してから on にすること。共有シークレットが必要なのは iOS アプリ用 API
-  （`/devices` `/briefings/latest` `/deadlines` `/deadlines/complete`）のみ
+  （`/devices` `/briefings/latest` `/deadlines` `/deadlines/complete` `/todos/repo`）のみ
+- アプリからの TODO 追加（`POST /todos/repo`）は `GITHUB_TOKEN` で対象リポジトリの `TODO.md` へ
+  コミットするため、トークンに**書き込み権限**が必要（classic PAT は `repo` スコープ /
+  fine-grained は Contents: Read and write）。読み取り専用トークンだと追加時に 403 が返る
 
 ## 1. セットアップ
 
