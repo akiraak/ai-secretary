@@ -27,7 +27,8 @@ export interface MailTriageEntry {
 }
 
 interface ModelOutput {
-  title: string;
+  /** タイトル末尾に添える最重要トピック（無ければ空文字）。日付・曜日はコード側で付ける */
+  topic: string;
   summary: string;
   mails: MailTriageEntry[];
 }
@@ -46,9 +47,10 @@ const SYSTEM_PROMPT = `あなたは Akira Kozakai のパーソナル秘書です
 - 除外（mails に含めない）: 自分宛ての自動送信（Autopilot ニュース、[Autopilot] レポート、セルフメモ）
 index には候補リストの [n] の番号をそのまま入れ、reason には分類理由を日本語で簡潔に（20字程度）書きます。
 
-# 2. title
-push 通知のタイトル。「M/D(曜) 朝ブリーフィング」に、最重要トピックがあれば「 — 」で 1 つ添える。
-例: 「7/15(火) 朝ブリーフィング — Canvas 締切あり」
+# 2. topic
+push 通知タイトルの末尾に添える、その日の最重要トピックを 20 字程度で 1 つだけ。
+例: 「Canvas 締切あり」「歯科検診 10:00」。
+特筆すべきものが無ければ空文字にします。日付・曜日・「朝ブリーフィング」はこちらで付けるので含めません。
 
 # 3. summary
 push 通知の本文になる 2〜4 文の日本語要約。締切・今日の予定・要対応メールのうち重要なものに件数とともに触れる。
@@ -60,7 +62,7 @@ push 通知の本文になる 2〜4 文の日本語要約。締切・今日の�
 const OUTPUT_SCHEMA = {
   type: 'object',
   properties: {
-    title: { type: 'string', description: 'push 通知タイトル' },
+    topic: { type: 'string', description: '最重要トピック（20字程度。無ければ空文字）' },
     summary: { type: 'string', description: '2〜4文の日本語要約' },
     mails: {
       type: 'array',
@@ -77,7 +79,7 @@ const OUTPUT_SCHEMA = {
       },
     },
   },
-  required: ['title', 'summary', 'mails'],
+  required: ['topic', 'summary', 'mails'],
   additionalProperties: false,
 } as const;
 
@@ -139,7 +141,7 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
   const mails = applyMailTriage(input.mailCandidates, output.mails);
 
   return {
-    title: output.title,
+    title: buildTitle(input.date, output.topic),
     summary: output.summary,
     usage: usageFromResponse(response),
     payload: {
@@ -157,6 +159,29 @@ export async function generateBriefing(input: CollectedInput): Promise<Generated
   };
 }
 
+/**
+ * YYYY-MM-DD を「7/27(月)」表記にする。
+ * tz 変換せず UTC 正午扱いで整形し、曜日の日ズレを防ぐ（calendarDiff.ts と同方針）。
+ */
+export function jaDayLabel(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString('ja-JP', {
+    timeZone: 'UTC',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+/**
+ * push 通知タイトルを組み立てる。
+ * 曜日を LLM に書かせるとハルシネーションでズレるため、日付部分はコード側で生成する。
+ */
+export function buildTitle(date: string, topic: string): string {
+  const base = `${jaDayLabel(date)} 朝ブリーフィング`;
+  const t = topic.trim();
+  return t ? `${base} — ${t}` : base;
+}
+
 /** 収集結果を LLM へ渡すテキストに整形する（メール候補には index を振る）。 */
 export function buildUserPrompt(input: CollectedInput): string {
   const tz = config.briefing.tz;
@@ -172,7 +197,11 @@ export function buildUserPrompt(input: CollectedInput): string {
           minute: '2-digit',
         });
 
-  const lines: string[] = [`# ブリーフィング日付: ${input.date} (${tz})`, ''];
+  // 曜日を明示しておく（summary で曜日に言及したときのズレ防止）
+  const lines: string[] = [
+    `# ブリーフィング日付: ${input.date} ${jaDayLabel(input.date)} (${tz})`,
+    '',
+  ];
 
   lines.push(`## 今日の予定 (${input.todayEvents.length}件)`);
   for (const e of input.todayEvents) {
@@ -244,7 +273,7 @@ export function parseModelOutput(text: string): ModelOutput {
     throw new Error(`LLM 出力が JSON としてパースできません: ${text.slice(0, 200)}`);
   }
   const o = parsed as Partial<ModelOutput>;
-  if (typeof o.title !== 'string' || typeof o.summary !== 'string' || !Array.isArray(o.mails)) {
+  if (typeof o.topic !== 'string' || typeof o.summary !== 'string' || !Array.isArray(o.mails)) {
     throw new Error(`LLM 出力がスキーマに一致しません: ${text.slice(0, 200)}`);
   }
   return o as ModelOutput;
