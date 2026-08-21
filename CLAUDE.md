@@ -45,6 +45,36 @@ xcodebuild -project AISecretary.xcodeproj -scheme AISecretary \
 
 実機へのビルド & インストールはリポジトリ直下の `./run-ios-device.sh` を使う（`--local`（既定）= Mac の LAN IP を接続先として焼き込み / `--prod` = `https://secretary.chobi.me`。`backend/.env` の `API_SHARED_SECRET` も注入される）。
 
+## 本番デプロイ (g3plus)
+
+本番は g3plus サーバ上の Docker コンテナ `ai-secretary`（port 3008、`https://secretary.chobi.me`。単一コンテナで API サーバ + crond〔briefing 07:00 PT〕）。**手順の正本は `../g3plus-ops/docs/workflows/ai-secretary.md`**、デプロイ設定（docker-compose.yml / Dockerfile / `.env`）の正本は `../g3plus-ops/ai-secretary/`。build context は g3plus 上に clone した本リポジトリ（`/home/ubuntu/ai-secretary`）なので、**main へ push したコミットだけが反映される**。
+
+通常の更新（アプリコードの変更）は、main へ push した後:
+
+```bash
+ssh -i ~/.ssh/id_rsa_nopass ubuntu@g3plus.lan \
+  'git -C /home/ubuntu/ai-secretary pull origin main &&
+   docker compose --project-directory /home/ubuntu/g3plus-ops/ai-secretary build &&
+   docker compose --project-directory /home/ubuntu/g3plus-ops/ai-secretary up -d'
+ssh -i ~/.ssh/id_rsa_nopass ubuntu@g3plus.lan 'docker logs ai-secretary --tail 20'
+# 期待ログ: "ai-secretary API サーバ起動: http://localhost:3008"
+```
+
+環境変数の変更（追加・差し替え。例: `GOOGLE_REFRESH_TOKEN` の再取得後）は
+`../g3plus-ops/ai-secretary/.env`（git 管理外の正本）を編集してから転送 → 再起動:
+
+```bash
+scp -i ~/.ssh/id_rsa_nopass ../g3plus-ops/ai-secretary/.env \
+  ubuntu@g3plus.lan:/home/ubuntu/g3plus-ops/ai-secretary/.env
+ssh -i ~/.ssh/id_rsa_nopass ubuntu@g3plus.lan \
+  'docker compose --project-directory /home/ubuntu/g3plus-ops/ai-secretary up -d'
+```
+
+- env を追加したら `.env.example`（本リポジトリ `backend/` と `../g3plus-ops/ai-secretary/` の両方）も追従させ、`../g3plus-ops` はコミット・push する
+- デプロイ後の動作確認: `curl -s -o /dev/null -w '%{http_code}' https://secretary.chobi.me/briefings/latest -H "Authorization: Bearer <API_SHARED_SECRET>"` が 200（secret は `backend/.env` と同じ値）。認証なしは 401 が正
+- コンテナ内でのスモークテスト（check スクリプト類）: `ssh -i ~/.ssh/id_rsa_nopass ubuntu@g3plus.lan 'docker exec ai-secretary sh -lc ". /app/backend/container-env.sh; cd /app/backend && npm run mail:check"'` のように `container-env.sh` を source してから実行する（crond と同じ env 伝播方式）
+- briefing の手動実行は管理画面 `https://secretary.chobi.me/admin` の「今すぐ実行」、障害時の調べ方は workflow doc を参照
+
 ## 作業方針
 
 - ユーザーとのやり取りは日本語で行う
