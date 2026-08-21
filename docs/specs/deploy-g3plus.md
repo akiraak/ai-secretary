@@ -26,6 +26,22 @@ g3plus（Ubuntu）に backend を配置し、
 - アプリからの TODO 追加（`POST /todos/repo`）は `GITHUB_TOKEN` で対象リポジトリの `TODO.md` へ
   コミットするため、トークンに**書き込み権限**が必要（classic PAT は `repo` スコープ /
   fine-grained は Contents: Read and write）。読み取り専用トークンだと追加時に 403 が返る
+- タスク追加のメール通知を使う場合は `.env` に `NOTIFY_EMAIL_TO` を設定する
+  （未設定なら送らずログのみの fail-safe。タスク追加自体は変わらず成功する）。
+  送信は Gmail API（`gmail.send` スコープ）を使うため、**スコープ追加前に取得した
+  `GOOGLE_REFRESH_TOKEN` のままだと送信だけが insufficient scope で失敗し続ける**。
+  下記の再取得手順でトークンを差し替えること
+
+### GOOGLE_REFRESH_TOKEN の再取得（スコープ追加時）
+
+`src/auth/google.ts` の `GOOGLE_SCOPES` が変わったら（例: メール通知の `gmail.send` 追加）、
+既存のリフレッシュトークンには新スコープが含まれないため再取得が必要:
+
+1. Mac で `cd backend && npm run google:auth` → ブラウザで認可 → 表示された
+   `GOOGLE_REFRESH_TOKEN` をローカルの `.env` に貼り替える
+2. `npm run mail:check` で実送信を確認
+3. g3plus の `.env` にも同じトークンを反映し、`sudo systemctl restart ai-secretary-api`
+   （cron ジョブは次回実行時に新しい `.env` を読む）
 
 ## 1. セットアップ
 

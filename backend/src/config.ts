@@ -43,6 +43,10 @@ export const config = {
     lookbackDays: Number.parseInt(withDefault('GMAIL_LOOKBACK_DAYS', '2'), 10),
     maxResults: Number.parseInt(withDefault('GMAIL_MAX_RESULTS', '30'), 10),
   },
+  mail: {
+    // タスク追加通知メールの宛先。未設定なら通知は送らずログのみ（誤送信防止の fail-safe）
+    notifyTo: optional('NOTIFY_EMAIL_TO'),
+  },
   canvas: {
     icalUrl: optional('CANVAS_ICAL_URL'),
     // 締切を先読みする日数（今日から N 日後 00:00 まで）

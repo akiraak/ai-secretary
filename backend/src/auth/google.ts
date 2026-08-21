@@ -6,10 +6,12 @@ import { google } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
 import { config } from '../config.js';
 
-// Calendar / Gmail とも読み取り専用。
+// Calendar は読み取り専用、Gmail は読み取り + 送信（タスク追加のメール通知用）。
+// スコープを変えたら `npm run google:auth` を再実行して GOOGLE_REFRESH_TOKEN を差し替えること。
 export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
 ];
 
 /** clientId / clientSecret から OAuth2 クライアントを生成（リフレッシュトークンは任意でセット）。 */

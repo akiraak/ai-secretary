@@ -57,6 +57,7 @@ import {
 } from './admin.js';
 import { CANVAS_LOOKAHEAD_MAX, CANVAS_LOOKAHEAD_MIN } from './settings.js';
 import { RepoTodoError, addRepoTodo } from './githubWrite.js';
+import { sendMailInBackground } from './mail/send.js';
 import type { BriefingPayload, DeadlineItem } from './types.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -272,6 +273,15 @@ function todoWritableRepos(): Set<string> {
   return new Set(config.github.repos.filter((e) => REPO_NAME_RE.test(e)));
 }
 
+/** タスク追加通知メールに載せる追加時刻（シアトル時刻。例: 2026/08/20 07:00）。 */
+function addedAtLabel(): string {
+  return `${new Intl.DateTimeFormat('ja-JP', {
+    timeZone: config.briefing.tz,
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date())}（シアトル時刻）`;
+}
+
 async function handleAddRepoTodo(body: string, res: http.ServerResponse): Promise<void> {
   let parsed: unknown;
   try {
@@ -303,6 +313,10 @@ async function handleAddRepoTodo(body: string, res: http.ServerResponse): Promis
   try {
     const { url } = await addRepoTodo(repo, trimmed);
     sendJson(res, 200, { ok: true, repo, text: trimmed, url });
+    sendMailInBackground(
+      `[ai-secretary] タスク追加: ${trimmed}`,
+      `リポジトリ TODO を追加しました。\n\nタスク: ${trimmed}\nリポジトリ: ${repo}\nコミット: ${url}\n追加時刻: ${addedAtLabel()}`,
+    );
   } catch (e) {
     if (e instanceof RepoTodoError) {
       sendJson(res, e.status, { error: e.message });
@@ -341,6 +355,10 @@ function handleAddDailyTodo(body: string, res: http.ServerResponse): void {
     return;
   }
   sendJson(res, 200, { ok: true, todo: addDailyTodo(trimmed) });
+  sendMailInBackground(
+    `[ai-secretary] タスク追加: ${trimmed}`,
+    `今日のタスクを追加しました。\n\nタスク: ${trimmed}\n追加時刻: ${addedAtLabel()}`,
+  );
 }
 
 function handleCompleteDailyTodo(body: string, res: http.ServerResponse): void {
