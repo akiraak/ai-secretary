@@ -115,6 +115,11 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
   color: var(--text-sub);
   font-family: 'SF Mono', Menlo, Monaco, monospace;
+  /* Tasks はタスクの全文を入れるので 1 行に切り詰める（全文はホバーの title で見せる） */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Body layout */
@@ -191,6 +196,9 @@ html.pre-sidebar-collapsed .sidebar-toggle::before {
   position: sticky;
   top: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 8px 6px;
   background: var(--side-bg);
   border-bottom: 1px solid var(--side-border);
@@ -200,9 +208,97 @@ html.pre-sidebar-collapsed .sidebar-toggle::before {
   display: none;
 }
 
+/* サイドバーの検索箱（並び順の行の下に貼り付く） */
+.sidebar-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 8px;
+  background: var(--side-bg);
+  border-bottom: 1px solid var(--side-border);
+}
+
+.sidebar-sort:not([hidden]) + .sidebar-search {
+  top: 37px;
+}
+
+.sidebar-search[hidden] {
+  display: none;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg, transparent);
+  border: 1px solid var(--side-border);
+  border-radius: 4px;
+}
+
+.sidebar-search-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.search-count {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.search-hit-path {
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tasks-search > li > .search-hit-path {
+  padding: 0 12px 6px 30px;
+}
+
+.search-hit-snippet {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-sort-group {
   display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 4px;
+}
+
+/* サイドバー上端の「+ 新規」。並び順トグルと同じ高さに収める */
+.sidebar-new-btn {
+  flex: none;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-sub);
+  background: transparent;
+  border: 1px solid var(--side-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sidebar-new-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.sidebar-new-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .sidebar-sort-btn {
@@ -761,6 +857,17 @@ html.pre-sidebar-collapsed .sidebar-toggle::before {
   gap: 8px;
 }
 
+/* 取り消せない操作（削除）。押し間違いに気付けるよう色で分ける */
+.doc-action-danger {
+  color: #b42318;
+  border-color: #f0c2bd;
+}
+
+.doc-action-danger:hover {
+  background: #fef3f2;
+  border-color: #b42318;
+}
+
 .doc-action-primary {
   background: var(--accent);
   color: #fff;
@@ -1119,3 +1226,601 @@ html.pre-sidebar-collapsed .sidebar-toggle::before {
   line-height: 1;
   pointer-events: none;
 }
+
+/* Tasks タブの左ペイン: 折り畳みツリー。親は濃い字、子は縦線で束ねる。文面は 1 行に切る */
+.tasks-tree, .tasks-branch { list-style: none; margin: 0; padding: 0; }
+.tasks-branch { margin-left: 15px; border-left: 1px solid var(--border); padding-left: 6px; }
+.nav-item.tasks-item {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  word-break: normal;
+}
+.tasks-item.tasks-top { color: var(--text); font-weight: 600; }
+.tasks-item.tasks-has-active:not(.active) { color: var(--text); }
+.tasks-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tasks-chev, .tasks-st {
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text-sub);
+  border-radius: 3px;
+}
+.tasks-chev { cursor: pointer; }
+.tasks-chev:hover { background: var(--hover); color: var(--text); }
+.tasks-chev:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tasks-chip {
+  font-size: 10px;
+  line-height: 14px;
+  padding: 0 4px;
+  color: var(--text-sub);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.tasks-item.active .tasks-chip { color: var(--accent); border-color: var(--accent); }
+.tasks-item.tasks-active .tasks-text, .tasks-item.tasks-active .tasks-st { color: #9a6700; }
+.tasks-item.tasks-cancelled .tasks-text { text-decoration: line-through; color: var(--text-sub); }
+
+/* Tasks タブの左ペイン: ツリー ｜ タイムライン の切り替え（期日のあるタスクが 1 本でもあるときだけ出る） */
+.tasks-view-switch { display: flex; gap: 0; margin: 6px 10px 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.tasks-view-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-mute);
+  background: var(--panel);
+  border: none;
+  cursor: pointer;
+}
+.tasks-view-btn + .tasks-view-btn { border-left: 1px solid var(--border); }
+.tasks-view-btn:hover { background: var(--hover); }
+.tasks-view-btn.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.tasks-view-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* タイムライン: 日の見出し → 時刻の順。済んだ行も薄く出す。文面は 2 行まで */
+.nav-item.tasks-day {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tasks-day.tasks-today { color: var(--accent); }
+.tasks-timeline { margin-left: 15px; border-left: 1px solid var(--border); padding-left: 6px; }
+.nav-item.tasks-item.tasks-tl-item { grid-template-columns: auto 14px minmax(0, 1fr) auto; align-items: start; }
+.tasks-tl-item .tasks-text { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+.tasks-tl-time { font-size: 11px; line-height: 18px; color: var(--text-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tasks-done .tasks-text, .tasks-done .tasks-tl-time, .tasks-done .tasks-st { color: var(--text-sub); }
+.tasks-late {
+  font-size: 10px;
+  line-height: 14px;
+  padding: 0 4px;
+  color: #cf222e;
+  border: 1px solid #cf222e;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.tasks-now {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  padding-left: 4px;
+  font-size: 10px;
+  color: #cf222e;
+  font-variant-numeric: tabular-nums;
+  list-style: none;
+}
+.tasks-now::after { content: ''; flex: 1; border-top: 1px solid #cf222e; }
+.tasks-tl-done-toggle { display: flex; align-items: center; gap: 4px; margin: 0 12px 4px; font-size: 11px; color: var(--text-mute); cursor: pointer; }
+.tasks-tl-done-toggle input { margin: 0; }
+.tasks-tl-rest { padding: 12px 14px 4px; font-size: 11px; color: var(--text-sub); }
+
+/* 右ペイン: その日の一覧と、タスクの詳細の期日 */
+.task-when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -8px 0 16px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--text-mute);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.task-when:hover { background: var(--hover); }
+.task-when-late { border-color: #cf222e; }
+.task-day-container { display: block; margin: -8px 0 16px; color: var(--text-mute); font-size: 13px; }
+.task-day-container:hover { color: var(--accent); }
+.task-day-list { list-style: none; margin: 0; padding: 0 0 0 10px; border-left: 2px solid var(--border); }
+.task-day-row { margin: 0 0 10px; }
+.task-day-card {
+  display: grid;
+  grid-template-columns: 92px 14px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.task-day-card:hover { border-color: var(--accent); }
+.task-day-card .tasks-text { white-space: normal; overflow: visible; line-height: 1.5; word-break: break-word; }
+.task-day-card .tasks-tl-time { font-size: 13px; line-height: 21px; color: var(--text); font-weight: 600; }
+.task-day-card .tasks-st { line-height: 21px; font-size: 12px; }
+.task-day-card.tasks-done { background: var(--side-bg); }
+.task-day-card.tasks-done .tasks-tl-time { color: var(--text-sub); font-weight: 400; }
+.task-day-card.tasks-active .tasks-text, .task-day-card.tasks-active .tasks-st { color: #9a6700; }
+.task-day-card.tasks-cancelled .tasks-text { text-decoration: line-through; color: var(--text-sub); }
+.task-day-sub { margin: 3px 0 0 124px; font-size: 11px; color: var(--text-sub); word-break: break-word; }
+.task-day-list .tasks-now { margin: 0 0 10px; font-size: 11px; }
+
+/* Tasks タブ（TODO.md のタスクを待ち受けている Claude Code へ渡す） */
+/* Files タブの画像プレビュー */
+.doc-image-box { padding: 12px 0; }
+.doc-image { max-width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.doc-image-cap { margin-top: 6px; font-size: 12px; color: var(--text-mute); font-family: 'SF Mono', Menlo, Monaco, monospace; }
+
+.task-pane { max-width: 860px; }
+.task-title { font-size: 18px; line-height: 1.4; margin: 0 0 4px; }
+.task-meta { color: var(--text-mute); font-size: 12px; margin-bottom: 16px; word-break: break-word; }
+.task-subtree {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin: 0 0 16px;
+}
+.task-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.task-row label { color: var(--text-mute); font-size: 13px; }
+.task-row select,
+.task-row button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.task-row button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.task-row button.danger { color: #b42318; border-color: #f0c2bd; }
+.task-row button:disabled { opacity: 0.5; cursor: default; }
+.task-note { color: var(--text-mute); font-size: 12px; margin-top: 12px; }
+/* 「追加の指示」（実行ボタンの上）。空欄なら今までと同じ文面が届く */
+.task-compose { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.task-compose label { color: var(--text-mute); font-size: 13px; }
+.task-compose-input {
+  font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 62px;
+}
+.task-compose-input::placeholder { color: var(--text-mute); }
+.task-compose-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
+/* TODO ツリー（Root タブの「ツリー」サブタブ） */
+.todo-tree {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 20px 20px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.todo-tree-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text-mute);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.todo-tree-summary button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-mute);
+  cursor: pointer;
+}
+
+.todo-tree-summary button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.todo-tree-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #dbeefb;
+  padding: 5px 12px;
+  border-radius: 4px;
+  margin: 14px 0 6px;
+}
+
+.todo-tree-heading:first-child { margin-top: 0; }
+
+.todo-tree-heading.level-3 {
+  background: #eef4fb;
+  font-size: 13px;
+}
+
+.todo-tree-count {
+  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+.todo-node-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 6px 3px 2px;
+  border-radius: 4px;
+}
+
+.todo-node-row:hover { background: var(--hover); }
+
+.todo-node.flash > .todo-node-row {
+  animation: todo-flash 1.4s ease-out;
+}
+
+@keyframes todo-flash {
+  0% { background: #fff3bf; box-shadow: 0 0 0 2px #f5c518; }
+  100% { background: transparent; box-shadow: none; }
+}
+
+.todo-toggle {
+  flex: none;
+  width: 18px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 22px;
+  padding: 0;
+}
+
+.todo-toggle:hover { color: var(--text); }
+
+.todo-toggle.leaf { visibility: hidden; }
+
+.todo-toggle::before { content: '▼'; }
+
+.todo-node.collapsed > .todo-node-row .todo-toggle::before { content: '▶'; }
+
+.todo-mark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
+  border: 1.5px solid var(--text-sub);
+  border-radius: 3px;
+  position: relative;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  color: var(--text-mute);
+}
+
+.todo-mark.done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.todo-mark.done::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-mark.active {
+  border-color: #d97706;
+  background: linear-gradient(90deg, #f59e0b 50%, transparent 50%);
+}
+
+.todo-mark.cancelled {
+  border-style: dashed;
+}
+
+.todo-mark.cancelled::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 5px;
+  border-top: 1.5px solid var(--text-sub);
+}
+
+.todo-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.todo-node.done > .todo-node-row .todo-text,
+.todo-node.cancelled > .todo-node-row .todo-text {
+  color: var(--text-mute);
+  text-decoration: line-through;
+}
+
+.todo-text a { color: var(--accent); }
+.todo-text a:hover { text-decoration: underline; }
+.todo-text code {
+  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  font-size: 0.88em;
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.todo-progress {
+  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  font-size: 11px;
+  color: var(--text-sub);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.todo-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.todo-chip {
+  display: inline-block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--side-bg);
+  color: var(--text-mute);
+  cursor: pointer;
+  text-decoration: none !important;
+  vertical-align: middle;
+}
+
+.todo-chip:hover { filter: brightness(0.95); }
+
+.todo-chip-doc {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: #b6d4f5;
+}
+
+.todo-chip-depends {
+  color: #b42318;
+  background: #fff1f0;
+  border-color: #f0c2bd;
+}
+
+.todo-chip-derived {
+  color: #6f42c1;
+  background: #f3eefc;
+  border-color: #d8c8f5;
+}
+
+.todo-chip-related {
+  color: #1a7f37;
+  background: #ecfdf3;
+  border-color: #b7e2c4;
+}
+
+/* 逆方向（相手側に書かれている関係）は点線で見分ける */
+.todo-chip-in { border-style: dashed; background: var(--panel); }
+
+.todo-chip.unresolved,
+.todo-chip.missing {
+  cursor: default;
+  opacity: 0.65;
+  text-decoration: line-through !important;
+}
+
+.todo-node-notes {
+  margin: 0 0 4px 41px;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.todo-node-notes > summary {
+  cursor: pointer;
+  color: var(--text-sub);
+  font-size: 11px;
+  user-select: none;
+  list-style: none;
+}
+
+.todo-node-notes > summary::-webkit-details-marker { display: none; }
+.todo-node-notes > summary::before { content: '＋ '; }
+.todo-node-notes[open] > summary::before { content: '－ '; }
+.todo-node-notes > summary:hover { color: var(--text); }
+
+.todo-note {
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  margin: 2px 0;
+  word-break: break-word;
+}
+
+.todo-note a { color: var(--accent); }
+.todo-note code {
+  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.todo-node-children {
+  margin-left: 20px;
+  padding-left: 4px;
+  border-left: 1px solid var(--border);
+}
+
+.todo-node.collapsed > .todo-node-children,
+.todo-node.collapsed > .todo-node-notes {
+  display: none;
+}
+
+.todo-tree-empty {
+  color: var(--text-mute);
+  padding: 8px 0;
+}
+
+/* Tasks タブ: 送り先の案内と投函の状態 */
+.task-targets-note { margin: -4px 0 12px; }
+.task-queue { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 12px; }
+.task-queue h2 { font-size: 13px; font-weight: 600; color: var(--text-mute); margin: 0 0 6px; }
+/* 左ペインの上の「プロジェクト全体」の操作（タスクに紐づかない） */
+.tasks-global {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 6px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.tasks-global-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-sub); }
+.tasks-global-btn {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.tasks-global-btn:hover { background: var(--hover); }
+.tasks-global-btn:disabled { opacity: 0.5; cursor: default; }
+.tasks-global-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* タスク追加（バックグラウンドの claude -p）。入力は共通のダイアログ（showAddTaskDialog）、
+   tasks-global の下にはジョブ状態だけが付く */
+.tasks-global-wrap { border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.tasks-global-wrap .tasks-global { border-bottom: none; margin-bottom: 0; }
+.tasks-global-btns { display: flex; gap: 6px; }
+.task-add-note { color: var(--text-mute); font-size: 11px; }
+.task-add-jobs { font-size: 11px; }
+.tasks-global-wrap .task-add-jobs { margin-top: 0; border-top: none; padding: 0 6px 8px; }
+/* 追加ジョブのコンパクト表示（1 行 ＝ チップ ＋ 文面。文面は省略記号で切る） */
+.task-add-line { display: flex; align-items: center; gap: 6px; padding: 2px 0; min-width: 0; }
+.task-add-line-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-sub); }
+.task-add-line button {
+  flex: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.task-add-line button:hover { background: var(--hover); }
+.task-add-line button:disabled { opacity: 0.5; cursor: default; }
+/* 詳細ペインの説明: 常時見えるのは 1 行 ＋「?」。全文はトグルで開いたときだけ */
+.task-hint { display: flex; align-items: center; gap: 6px; }
+.task-hint-toggle {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text-mute);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.task-hint-toggle:hover { background: var(--hover); color: var(--text); }
+.task-hint-full {
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+}
+.task-queue-state.running { color: #0550ae; border-color: #b6d5f5; background: #ddf4ff; }
+.modal-add-input { width: 100%; box-sizing: border-box; resize: vertical; margin-bottom: 6px; }
+.modal-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.modal-btn-primary:hover { background: var(--accent); border-color: var(--accent); opacity: 0.88; }
+.task-queue-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13px;
+}
+.task-queue-item:last-child { border-bottom: none; }
+.task-queue-state {
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+.task-queue-state.posted { color: #1a7f37; border-color: #aceebb; background: #dafbe1; }
+.task-queue-state.waiting { color: #9a6700; border-color: #eac54f; background: #fff8c5; }
+.task-queue-state.failed { color: #b42318; border-color: #f0c2bd; background: #ffebe9; }
+.task-queue-text { flex: 1 1 auto; min-width: 200px; word-break: break-word; }
+.task-queue-time { color: var(--text-mute); font-size: 12px; white-space: nowrap; }
+.task-queue-item button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.task-queue-item button:disabled { opacity: 0.5; cursor: default; }
+.task-queue-err { flex-basis: 100%; color: #b42318; font-size: 12px; }
